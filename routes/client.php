@@ -1,11 +1,15 @@
 <?php
 
-use App\Http\Controllers\Settings\PasswordController;
-use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Client\Settings\PasswordController;
+use App\Http\Controllers\Client\Settings\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'verified', 'role_or_permission:client|super-admin'])->group(function () {
+    Route::get('dashboard', function () {
+        return Inertia::render('client/Dashboard');
+    })->name('dashboard');
+
     Route::redirect('settings', '/settings/profile');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');

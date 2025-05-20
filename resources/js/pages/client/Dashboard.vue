@@ -2,7 +2,8 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/vue3';
-import PlaceholderPattern from '../components/PlaceholderPattern.vue';
+import PlaceholderPattern from '@/components/PlaceholderPattern.vue';
+
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -10,6 +11,25 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
 ];
+
+import { useEcho , useEchoModel } from "@laravel/echo-vue";
+
+
+interface User{
+    id: number;
+    name: string;
+    email: string;
+    created_at: string;
+}
+
+
+
+    // Listen for userCreated events
+    useEcho<{user: User}>('user', "userCreated", (e: {user: User}) => {
+        console.log('New user created:', e.user);
+    });
+
+
 </script>
 
 <template>

@@ -1,4 +1,6 @@
 rules:
+## Your a Professional Software engineer so endevaour to write clean and maintainable code using the latest updates as for the language we writest version of laravel, vue js, inertia js and shadcn-vue.
+
   for proper organisation endeavor to have respective files in respective folders.
   forexample users files should be placed inside user folder and not directly under src directory. 
   frontend files like welcome.vue should be placed inside frontend folder and not directly under src directory.
