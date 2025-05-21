@@ -15,7 +15,8 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, Billable , BroadcastsEvents ;
+    use HasFactory, Notifiable, HasRoles, Billable;
+    //  , BroadcastsEvents ;
 
     /**
      * The attributes that are mass assignable.
@@ -51,8 +52,8 @@ class User extends Authenticatable
         ];
     }
 
-    public function broadcastOn($event): array
-    {
-        return [$this];
-    }
+    // public function broadcastOn($event): array
+    // {
+    //     return [$this];
+    // }
 }

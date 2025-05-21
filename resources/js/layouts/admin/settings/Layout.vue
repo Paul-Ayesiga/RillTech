@@ -4,19 +4,28 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
+import { Settings, Lock, Palette, Clock } from 'lucide-vue-next';
 
 const sidebarNavItems: NavItem[] = [
     {
         title: 'Profile',
         href: '/admin/settings/profile',
+        icon: Settings,
     },
     {
         title: 'Password',
         href: '/admin/settings/password',
+        icon: Lock,
     },
     {
         title: 'Appearance',
         href: '/admin/settings/appearance',
+        icon: Palette,
+    },
+    {
+        title: 'Session Management',
+        href: '/admin/settings/session',
+        icon: Clock,
     },
 ];
 

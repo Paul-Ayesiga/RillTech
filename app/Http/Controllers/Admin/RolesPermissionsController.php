@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\PermissionsExport;
+use App\Exports\PermissionsPdfExport;
 use App\Http\Controllers\Controller;
 use App\Models\Permission;
 use App\Models\PermissionGroup;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RolesPermissionsController extends Controller
 {
@@ -40,30 +43,17 @@ class RolesPermissionsController extends Controller
             $roles = Role::with('permissions')->get();
         }
 
-        // Get permission groups with their permissions and roles
-        $permissionGroups = PermissionGroup::with(['permissions.roles'])
-            ->orderBy('display_order')
-            ->orderBy('name')
-            ->get();
-
-        // Get permissions without a group, including their roles
-        $ungroupedPermissions = Permission::whereNull('group_id')->get();
-
-        // Get all permissions for the role form
-        $allPermissions = Permission::all();
-
-        // Debug: Log the first permission with its roles
-        if ($ungroupedPermissions->count() > 0) {
-            Log::info('First ungrouped permission: ' . $ungroupedPermissions->first()->name);
-            Log::info('Roles count: ' . $ungroupedPermissions->first()->roles->count());
-            Log::info('Roles: ' . json_encode($ungroupedPermissions->first()->roles->pluck('name')));
-        }
-
         return Inertia::render('admin/RolesPermissions', [
             'roles' => $roles,
-            'permissions' => $allPermissions,
-            'permissionGroups' => $permissionGroups,
-            'ungroupedPermissions' => $ungroupedPermissions,
+            // Defer loading of permissions data for better performance
+            'permissions' => Inertia::defer(fn () => Permission::all()),
+            'permissionGroups' => Inertia::defer(fn () => PermissionGroup::with(['permissions.roles'])
+                ->orderBy('display_order')
+                ->orderBy('name')
+                ->get()),
+            'ungroupedPermissions' => Inertia::defer(fn () => Permission::with('roles')
+                ->whereNull('group_id')
+                ->get()),
         ]);
     }
 
@@ -226,5 +216,133 @@ class RolesPermissionsController extends Controller
         $permission->delete();
 
         return redirect()->back()->with('success', 'Permission deleted successfully.');
+    }
+
+    /**
+     * Bulk delete permissions.
+     */
+    public function bulkDeletePermissions(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['exists:permissions,id'],
+        ]);
+
+        // Get the permissions
+        $permissions = Permission::whereIn('id', $validated['ids'])->get();
+
+        // Delete the permissions
+        foreach ($permissions as $permission) {
+            $permission->delete();
+        }
+
+        return redirect()->back()->with('success', count($validated['ids']) . ' permissions deleted successfully.');
+    }
+
+    /**
+     * Bulk assign permissions to a group.
+     */
+    public function bulkAssignGroup(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['exists:permissions,id'],
+            'group_id' => ['nullable', 'exists:permission_groups,id'],
+        ]);
+
+        // Get the permissions
+        $permissions = Permission::whereIn('id', $validated['ids'])->get();
+
+        // Update the group_id for each permission
+        foreach ($permissions as $permission) {
+            $permission->update([
+                'group_id' => $validated['group_id'],
+            ]);
+        }
+
+        $groupName = $validated['group_id'] ? PermissionGroup::find($validated['group_id'])->name : 'None';
+        return redirect()->back()->with('success', count($validated['ids']) . ' permissions assigned to group: ' . $groupName);
+    }
+
+    /**
+     * Bulk assign permissions to roles.
+     */
+    public function bulkAssignRoles(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['exists:permissions,id'],
+            'roles' => ['required', 'array'],
+            'roles.*' => ['exists:roles,id'],
+        ]);
+
+        // Get the permissions and roles
+        $permissions = Permission::whereIn('id', $validated['ids'])->get();
+        $roles = Role::whereIn('id', $validated['roles'])->get();
+
+        // Get all roles
+        $allRoles = Role::all();
+
+        // Find super-admin role
+        $superAdmin = $allRoles->where('name', 'super-admin')->first();
+
+        // For each permission
+        foreach ($permissions as $permission) {
+            // Remove permission from all non-super-admin roles first
+            foreach ($allRoles as $role) {
+                if ($role->name !== 'super-admin' && $role->hasPermissionTo($permission)) {
+                    $role->revokePermissionTo($permission);
+                }
+            }
+
+            // Attach permission to selected roles
+            foreach ($roles as $role) {
+                if ($role->name !== 'super-admin') { // Skip super-admin as we'll handle it separately
+                    $role->givePermissionTo($permission);
+                }
+            }
+
+            // Always ensure super-admin has the permission
+            if ($superAdmin && !$superAdmin->hasPermissionTo($permission)) {
+                $superAdmin->givePermissionTo($permission);
+            }
+        }
+
+        return redirect()->back()->with('success', count($validated['ids']) . ' permissions assigned to selected roles.');
+    }
+
+    /**
+     * Export permissions to Excel.
+     */
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        $permissions = null;
+
+        if ($request->has('ids')) {
+            $ids = explode(',', $request->input('ids'));
+            $permissions = Permission::with(['group', 'roles'])->whereIn('id', $ids)->get();
+        }
+
+        return Excel::download(new PermissionsExport($permissions), 'permissions.xlsx');
+    }
+
+    /**
+     * Export permissions to PDF.
+     */
+    public function exportPdf(Request $request)
+    {
+        $permissions = null;
+
+        if ($request->has('ids')) {
+            $ids = explode(',', $request->input('ids'));
+            $permissions = Permission::with(['group', 'roles'])->whereIn('id', $ids)->get();
+        }
+
+        $pdf = new PermissionsPdfExport($permissions);
+        $output = $pdf->export();
+
+        return response($output)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="permissions.pdf"');
     }
 }

@@ -148,6 +148,11 @@ const table = useVueTable({
   onColumnVisibilityChange: updaterOrValue => valueUpdater(updaterOrValue, columnVisibility),
   onRowSelectionChange: updaterOrValue => valueUpdater(updaterOrValue, rowSelection),
   onExpandedChange: updaterOrValue => valueUpdater(updaterOrValue, expanded),
+  initialState: {
+    pagination: {
+      pageSize: 10,
+    },
+  },
   state: {
     get sorting() { return sorting.value },
     get columnFilters() { return columnFilters.value },
@@ -223,24 +228,49 @@ const table = useVueTable({
       </Table>
     </div>
 
-    <div class="flex items-center justify-end space-x-2 py-4">
-      <div class="space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="!table.getCanPreviousPage()"
-          @click="table.previousPage()"
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="!table.getCanNextPage()"
-          @click="table.nextPage()"
-        >
-          Next
-        </Button>
+    <div class="flex items-center justify-between py-4">
+      <!-- Pagination Information -->
+      <div class="text-sm text-muted-foreground">
+        Showing {{ table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1 }}
+        to {{ Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length) }}
+        of {{ table.getFilteredRowModel().rows.length }} entries
+      </div>
+
+      <!-- Pagination Controls -->
+      <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-2">
+          <span class="text-sm font-medium">Rows per page</span>
+          <select
+            class="h-8 w-16 rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            v-model="table.getState().pagination.pageSize"
+            @change="table.setPageSize(Number($event.target.value))"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="!table.getCanPreviousPage()"
+            @click="table.previousPage()"
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="!table.getCanNextPage()"
+            @click="table.nextPage()"
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   </div>

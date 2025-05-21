@@ -12,22 +12,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-import { useEcho , useEchoModel } from "@laravel/echo-vue";
-
-
-interface User{
-    id: number;
-    name: string;
-    email: string;
-    created_at: string;
-}
-
-
-
-    // Listen for userCreated events
-    useEcho<{user: User}>('user', "userCreated", (e: {user: User}) => {
-        console.log('New user created:', e.user);
-    });
+// import { useEcho , useEchoModel } from "@laravel/echo-vue";
 
 
 </script>

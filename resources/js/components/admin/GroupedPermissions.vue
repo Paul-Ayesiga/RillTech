@@ -10,6 +10,11 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'edit', permission: Permission): void;
     (e: 'delete', permission: Permission): void;
+    (e: 'bulk-delete', ids: number[]): void;
+    (e: 'bulk-assign-group', ids: number[], groupId: number | null): void;
+    (e: 'bulk-assign-roles', ids: number[], roleIds: number[]): void;
+    (e: 'open-bulk-assign-group-dialog', ids: number[]): void;
+    (e: 'open-bulk-assign-roles-dialog', ids: number[]): void;
 }>();
 </script>
 
@@ -23,6 +28,11 @@ const emit = defineEmits<{
                 :group-color="group.color"
                 @edit="emit('edit', $event)"
                 @delete="emit('delete', $event)"
+                @bulk-delete="emit('bulk-delete', $event)"
+                @bulk-assign-group="emit('bulk-assign-group', $event[0], $event[1])"
+                @bulk-assign-roles="emit('bulk-assign-roles', $event[0], $event[1])"
+                @open-bulk-assign-group-dialog="(ids) => { console.log('GroupedPermissions received IDs:', ids); emit('open-bulk-assign-group-dialog', ids); }"
+                @open-bulk-assign-roles-dialog="(ids) => { console.log('GroupedPermissions received IDs:', ids); emit('open-bulk-assign-roles-dialog', ids); }"
             />
         </div>
 
@@ -32,6 +42,11 @@ const emit = defineEmits<{
             group-name="Ungrouped Permissions"
             @edit="emit('edit', $event)"
             @delete="emit('delete', $event)"
+            @bulk-delete="emit('bulk-delete', $event)"
+            @bulk-assign-group="emit('bulk-assign-group', $event[0], $event[1])"
+            @bulk-assign-roles="emit('bulk-assign-roles', $event[0], $event[1])"
+            @open-bulk-assign-group-dialog="(ids) => { console.log('GroupedPermissions received IDs:', ids); emit('open-bulk-assign-group-dialog', ids); }"
+            @open-bulk-assign-roles-dialog="(ids) => { console.log('GroupedPermissions received IDs:', ids); emit('open-bulk-assign-roles-dialog', ids); }"
         />
     </div>
 </template>

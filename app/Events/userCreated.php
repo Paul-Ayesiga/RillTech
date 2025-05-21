@@ -31,7 +31,7 @@ class userCreated implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('user'),
+            new PrivateChannel('App.Models.User.{id}'),
         ];
     }
 

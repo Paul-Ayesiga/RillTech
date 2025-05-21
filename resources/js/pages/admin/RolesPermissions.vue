@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminLayout from '@/layouts/AdminLayout.vue';
-import { type BreadcrumbItem, type Role, type Permission as PermissionType } from '@/types';
-import { Head, useForm, Link } from '@inertiajs/vue3';
+import { type BreadcrumbItem, type Role, type Permission as PermissionType, type PermissionGroup } from '@/types';
+import { Head, useForm, Link, Deferred } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'vue-sonner';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { PlusCircle, AlertTriangle, Info, ShieldCheck, ShieldAlert, LoaderCircle } from 'lucide-vue-next';
 import DataTableRoles from '@/components/admin/DataTableRoles.vue';
 import GroupedPermissions from '@/components/admin/GroupedPermissions.vue';
@@ -34,18 +34,21 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface Props {
     roles: Role[];
     permissions: PermissionType[];
-    permissionGroups: {
-        id: number;
-        name: string;
-        description: string | null;
-        color: string | null;
-        display_order: number;
-        permissions: PermissionType[];
-    }[];
+    permissionGroups: PermissionGroup[];
     ungroupedPermissions: PermissionType[];
 }
 
-const props = defineProps<Props>();
+// const props = defineProps<Props>();
+const props = withDefaults(defineProps<{
+    roles: Role[];
+    permissions?: PermissionType[];
+    permissionGroups?: PermissionGroup[];
+    ungroupedPermissions?: PermissionType[];
+}>(), {
+    permissions: () => [],
+    permissionGroups: () => [],
+    ungroupedPermissions: () => []
+});
 
 // Role dialog state
 const isRoleDialogOpen = ref(false);
@@ -62,6 +65,30 @@ const currentPermissionId = ref<number | null>(null);
 const permissionToDelete = ref<PermissionType | null>(null);
 const isDeletePermissionDialogOpen = ref(false);
 const isDeletingPermission = ref(false);
+
+// Bulk action states
+const isBulkDeleteDialogOpen = ref(false);
+const isBulkAssignGroupDialogOpen = ref(false);
+const isBulkAssignRolesDialogOpen = ref(false);
+const isBulkDeleting = ref(false);
+const isBulkAssigningGroup = ref(false);
+const isBulkAssigningRoles = ref(false);
+const selectedPermissionIds = ref<number[]>([]);
+
+// Watch selectedPermissionIds for changes
+watch(selectedPermissionIds, (newIds: number[]) => {
+    console.log('selectedPermissionIds changed:', newIds);
+}, { deep: true });
+
+// Bulk assign group form
+const bulkGroupForm = useForm({
+    group_id: null as number | null,
+});
+
+// Bulk assign roles form
+const bulkRolesForm = useForm({
+    roles: [] as number[],
+});
 
 // Role form
 const roleForm = useForm({
@@ -190,7 +217,7 @@ const openCreatePermissionDialog = () => {
     resetPermissionForm();
 
     // Find super-admin role and pre-select it
-    const superAdmin = props.roles.find(role => role.name === 'super-admin');
+    const superAdmin = props.roles.find((role: Role) => role.name === 'super-admin');
     if (superAdmin) {
         permissionForm.roles.push(superAdmin.id);
     }
@@ -213,11 +240,11 @@ const openEditPermissionDialog = (permission: PermissionType) => {
 
     // Set selected roles if available
     if (permission.roles && permission.roles.length > 0) {
-        permissionForm.roles = permission.roles.map(role => role.id);
+        permissionForm.roles = permission.roles.map((role: any) => role.id);
     }
 
     // Find super-admin role and ensure it's always included
-    const superAdmin = props.roles.find(role => role.name === 'super-admin');
+    const superAdmin = props.roles.find((role: Role) => role.name === 'super-admin');
     if (superAdmin && !permissionForm.roles.includes(superAdmin.id)) {
         permissionForm.roles.push(superAdmin.id);
     }
@@ -278,6 +305,151 @@ const deletePermission = () => {
         onError: () => {
             toast.error('Failed to delete permission');
             isDeletingPermission.value = false;
+        }
+    });
+};
+
+// Open bulk delete dialog
+const openBulkDeleteDialog = (ids: number[]) => {
+    selectedPermissionIds.value = [...ids]; // Create a new array to ensure reactivity
+    console.log('Opening bulk delete dialog with IDs:', selectedPermissionIds.value);
+    isBulkDeleteDialogOpen.value = true;
+};
+
+// Handle bulk delete button click
+const handleBulkDelete = () => {
+    console.log('Handle bulk delete with IDs:', selectedPermissionIds.value);
+    if (selectedPermissionIds.value.length === 0) {
+        toast.error('No permissions selected');
+        return;
+    }
+
+    bulkDeletePermissions();
+};
+
+// Bulk delete permissions
+const bulkDeletePermissions = () => {
+    if (selectedPermissionIds.value.length === 0) return;
+
+    isBulkDeleting.value = true;
+
+    useForm({
+        ids: selectedPermissionIds.value
+    }).post('/admin/permissions/bulk-delete', {
+        onSuccess: () => {
+            toast.success(`${selectedPermissionIds.value.length} permissions deleted successfully`);
+            isBulkDeleteDialogOpen.value = false;
+            selectedPermissionIds.value = [];
+            isBulkDeleting.value = false;
+        },
+        onError: () => {
+            toast.error('Failed to delete permissions');
+            isBulkDeleting.value = false;
+        }
+    });
+};
+
+// Open bulk assign group dialog
+const openBulkAssignGroupDialog = (ids?: number[]) => {
+    bulkGroupForm.group_id = null;
+    if (ids && ids.length > 0) {
+        selectedPermissionIds.value = [...ids]; // Create a new array to ensure reactivity
+    }
+    console.log('Opening bulk assign group dialog with IDs:', selectedPermissionIds.value);
+    isBulkAssignGroupDialogOpen.value = true;
+};
+
+// Handle bulk assign group form submission
+const handleBulkAssignGroup = () => {
+    console.log('Handle bulk assign group with IDs:', selectedPermissionIds.value);
+    if (selectedPermissionIds.value.length === 0) {
+        toast.error('No permissions selected');
+        return;
+    }
+
+    bulkAssignGroup(selectedPermissionIds.value, bulkGroupForm.group_id);
+};
+
+// Bulk assign permissions to group
+const bulkAssignGroup = (ids: number[], groupId: number | null) => {
+    console.log('Bulk assign group called with IDs:', ids);
+    selectedPermissionIds.value = [...ids]; // Create a new array to ensure reactivity
+    isBulkAssigningGroup.value = true;
+
+    useForm({
+        ids: selectedPermissionIds.value,
+        group_id: groupId
+    }).post('/admin/permissions/bulk-assign-group', {
+        onSuccess: () => {
+            const groupName = groupId
+                ? props.permissionGroups.find((g: PermissionGroup) => g.id === groupId)?.name || 'selected group'
+                : 'No Group';
+            toast.success(`${selectedPermissionIds.value.length} permissions assigned to ${groupName}`);
+            isBulkAssignGroupDialogOpen.value = false;
+            selectedPermissionIds.value = [];
+            isBulkAssigningGroup.value = false;
+        },
+        onError: () => {
+            toast.error('Failed to assign permissions to group');
+            isBulkAssigningGroup.value = false;
+        }
+    });
+};
+
+// Open bulk assign roles dialog
+const openBulkAssignRolesDialog = (ids?: number[]) => {
+    // Reset form
+    bulkRolesForm.roles = [];
+
+    // Find super-admin role and pre-select it
+    const superAdmin = props.roles.find((role: Role) => role.name === 'super-admin');
+    if (superAdmin) {
+        bulkRolesForm.roles.push(superAdmin.id);
+    }
+
+    if (ids && ids.length > 0) {
+        selectedPermissionIds.value = [...ids]; // Create a new array to ensure reactivity
+    }
+
+    console.log('Opening bulk assign roles dialog with IDs:', selectedPermissionIds.value);
+    isBulkAssignRolesDialogOpen.value = true;
+};
+
+// Handle bulk assign roles form submission
+const handleBulkAssignRoles = () => {
+    console.log('Handle bulk assign roles with IDs:', selectedPermissionIds.value);
+    if (selectedPermissionIds.value.length === 0) {
+        toast.error('No permissions selected');
+        return;
+    }
+
+    if (bulkRolesForm.roles.length === 0) {
+        toast.error('No roles selected');
+        return;
+    }
+
+    bulkAssignRoles(selectedPermissionIds.value, bulkRolesForm.roles);
+};
+
+// Bulk assign permissions to roles
+const bulkAssignRoles = (ids: number[], roleIds: number[]) => {
+    console.log('Bulk assign roles called with IDs:', ids);
+    selectedPermissionIds.value = [...ids]; // Create a new array to ensure reactivity
+    isBulkAssigningRoles.value = true;
+
+    useForm({
+        ids: selectedPermissionIds.value,
+        roles: roleIds
+    }).post('/admin/permissions/bulk-assign-roles', {
+        onSuccess: () => {
+            toast.success(`${selectedPermissionIds.value.length} permissions assigned to selected roles`);
+            isBulkAssignRolesDialogOpen.value = false;
+            selectedPermissionIds.value = [];
+            isBulkAssigningRoles.value = false;
+        },
+        onError: () => {
+            toast.error('Failed to assign permissions to roles');
+            isBulkAssigningRoles.value = false;
         }
     });
 };
@@ -369,12 +541,51 @@ const deletePermission = () => {
                                     </AlertDescription>
                                 </Alert>
                             </div>
-                            <GroupedPermissions
-                                :permission-groups="props.permissionGroups"
-                                :ungrouped-permissions="props.ungroupedPermissions"
-                                @edit="openEditPermissionDialog"
-                                @delete="openDeletePermissionDialog"
-                            />
+
+                            <!-- Deferred loading for permission groups -->
+                            <Deferred data="permissionGroups">
+                                <template #fallback>
+                                    <div class="space-y-8">
+                                        <!-- Skeleton for permission groups -->
+                                        <div v-for="i in 3" :key="i" class="animate-pulse">
+                                            <div class="flex items-center gap-2 px-2 py-1 rounded-md bg-muted mb-2">
+                                                <div class="w-3 h-3 rounded-full bg-muted-foreground/30"></div>
+                                                <div class="h-6 w-40 bg-muted-foreground/30 rounded"></div>
+                                                <div class="h-5 w-8 rounded-full bg-muted-foreground/30"></div>
+                                            </div>
+                                            <div class="border rounded-md p-4">
+                                                <div class="flex justify-between items-center mb-4">
+                                                    <div class="h-8 w-40 bg-muted-foreground/30 rounded"></div>
+                                                    <div class="h-8 w-32 bg-muted-foreground/30 rounded"></div>
+                                                </div>
+                                                <div class="h-10 bg-muted-foreground/30 rounded mb-4"></div>
+                                                <div class="space-y-2">
+                                                    <div v-for="j in 3" :key="j" class="h-12 bg-muted-foreground/20 rounded"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <Deferred data="ungroupedPermissions">
+                                    <template #fallback>
+                                        <!-- Already showing skeletons above -->
+                                    </template>
+
+                                    <GroupedPermissions
+                                        :permission-groups="props.permissionGroups"
+                                        :ungrouped-permissions="props.ungroupedPermissions"
+                                        :roles="props.roles"
+                                        @edit="openEditPermissionDialog"
+                                        @delete="openDeletePermissionDialog"
+                                        @bulk-delete="openBulkDeleteDialog"
+                                        @bulk-assign-group="bulkAssignGroup"
+                                        @bulk-assign-roles="bulkAssignRoles"
+                                        @open-bulk-assign-group-dialog="(ids) => { console.log('RolesPermissions received IDs:', ids); openBulkAssignGroupDialog(ids); }"
+                                        @open-bulk-assign-roles-dialog="(ids) => { console.log('RolesPermissions received IDs:', ids); openBulkAssignRolesDialog(ids); }"
+                                    />
+                                </Deferred>
+                            </Deferred>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -416,19 +627,29 @@ const deletePermission = () => {
                                     Select the permissions for this role
                                 </div>
                                 <div class="h-[200px] rounded-md border p-4 overflow-y-auto" scroll-region>
-                                    <div class="grid gap-3">
-                                        <div v-for="permission in props.permissions" :key="permission.id" class="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                :id="`permission-${permission.id}`"
-                                                :value="permission.id"
-                                                v-model="roleForm.permissions"
-                                                :disabled="isEditingRole && roleForm.name === 'super-admin'"
-                                                class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                                            />
-                                            <Label :for="`permission-${permission.id}`" class="text-sm">{{ permission.name }}</Label>
+                                    <Deferred data="permissions">
+                                        <template #fallback>
+                                            <div class="animate-pulse space-y-2">
+                                                <div v-for="i in 10" :key="i" class="flex items-center space-x-2">
+                                                    <div class="h-4 w-4 rounded bg-muted-foreground/20"></div>
+                                                    <div class="h-4 w-40 rounded bg-muted-foreground/20"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div class="grid gap-3">
+                                            <div v-for="permission in props.permissions" :key="permission.id" class="flex items-center space-x-2">
+                                                <input
+                                                    type="checkbox"
+                                                    :id="`permission-${permission.id}`"
+                                                    :value="permission.id"
+                                                    v-model="roleForm.permissions"
+                                                    :disabled="isEditingRole && roleForm.name === 'super-admin'"
+                                                    class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                                />
+                                                <Label :for="`permission-${permission.id}`" class="text-sm">{{ permission.name }}</Label>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </Deferred>
                                 </div>
                                 <p v-if="roleForm.errors?.permissions" class="mt-1 text-sm text-destructive">{{ roleForm.errors.permissions }}</p>
                             </div>
@@ -495,16 +716,21 @@ const deletePermission = () => {
                         <div class="grid grid-cols-4 items-center gap-4">
                             <Label for="group-id" class="text-right font-medium">Group</Label>
                             <div class="col-span-3 space-y-1">
-                                <select
-                                    id="group-id"
-                                    v-model="permissionForm.group_id"
-                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                >
-                                    <option :value="null">No Group</option>
-                                    <option v-for="group in props.permissionGroups" :key="group.id" :value="group.id">
-                                        {{ group.name }}
-                                    </option>
-                                </select>
+                                <Deferred data="permissionGroups">
+                                    <template #fallback>
+                                        <div class="w-full h-10 rounded-md bg-muted-foreground/20 animate-pulse"></div>
+                                    </template>
+                                    <select
+                                        id="group-id"
+                                        v-model="permissionForm.group_id"
+                                        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    >
+                                        <option :value="null">No Group</option>
+                                        <option v-for="group in props.permissionGroups" :key="group.id" :value="group.id">
+                                            {{ group.name }}
+                                        </option>
+                                    </select>
+                                </Deferred>
                                 <p v-if="permissionForm.errors?.group_id" class="text-sm text-destructive">{{ permissionForm.errors.group_id }}</p>
                             </div>
                         </div>
@@ -514,7 +740,7 @@ const deletePermission = () => {
                                 <div class="mb-2 text-sm text-muted-foreground">
                                     Select the roles that should have this permission
                                 </div>
-                                <Alert variant="info" class="mb-2">
+                                <Alert class="mb-2">
                                     <Info class="h-4 w-4" />
                                     <AlertDescription class="text-xs">
                                         The super-admin role always has all permissions and cannot be unchecked.
@@ -652,6 +878,184 @@ const deletePermission = () => {
                         Delete Permission
                     </Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Bulk Delete Permissions Dialog -->
+        <Dialog
+            v-model:open="isBulkDeleteDialogOpen"
+            @update:open="() => { /* Don't clear selectedPermissionIds here */ }"
+        >
+            <DialogContent class="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle class="text-xl flex items-center gap-2">
+                        <AlertTriangle class="h-5 w-5 text-destructive" />
+                        Confirm Bulk Delete
+                    </DialogTitle>
+                    <DialogDescription>
+                        Are you sure you want to delete {{ selectedPermissionIds.length }} permissions? This action cannot be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="py-4">
+                    <Alert variant="destructive" class="mb-4">
+                        <AlertTriangle class="h-4 w-4" />
+                        <AlertTitle>Warning</AlertTitle>
+                        <AlertDescription>
+                            Deleting these permissions will remove them from all roles that currently have them assigned.
+                        </AlertDescription>
+                    </Alert>
+                </div>
+                <DialogFooter class="gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        @click="isBulkDeleteDialogOpen = false"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        @click="handleBulkDelete"
+                        :disabled="isBulkDeleting"
+                    >
+                        <LoaderCircle v-if="isBulkDeleting" class="mr-2 h-4 w-4 animate-spin" />
+                        Delete {{ selectedPermissionIds.length }} Permissions
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Bulk Assign Group Dialog -->
+        <Dialog
+            v-model:open="isBulkAssignGroupDialogOpen"
+            @update:open="(open) => { if (!open) { bulkGroupForm.group_id = null; } }"
+        >
+            <DialogContent class="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle class="text-xl">Assign to Group</DialogTitle>
+                    <DialogDescription>
+                        Assign {{ selectedPermissionIds.length }} permissions to a group
+                        <span class="hidden">{{ console.log('Dialog showing IDs:', selectedPermissionIds) }}</span>
+                    </DialogDescription>
+                </DialogHeader>
+                <form @submit.prevent="handleBulkAssignGroup">
+                    <div class="grid gap-6 py-4">
+                        <div class="mb-4 text-sm text-muted-foreground">
+                            You are about to assign <strong>{{ selectedPermissionIds.length }}</strong> permissions to a group.
+                        </div>
+                        <div class="grid grid-cols-4 items-center gap-4">
+                            <Label for="bulk-group-id" class="text-right font-medium">Group</Label>
+                            <div class="col-span-3 space-y-1">
+                                <Deferred data="permissionGroups">
+                                    <template #fallback>
+                                        <div class="w-full h-10 rounded-md bg-muted-foreground/20 animate-pulse"></div>
+                                    </template>
+                                    <select
+                                        id="bulk-group-id"
+                                        v-model="bulkGroupForm.group_id"
+                                        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    >
+                                        <option :value="null">No Group</option>
+                                        <option v-for="group in props.permissionGroups" :key="group.id" :value="group.id">
+                                            {{ group.name }}
+                                        </option>
+                                    </select>
+                                </Deferred>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter class="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="isBulkAssignGroupDialogOpen = false"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            :disabled="isBulkAssigningGroup"
+                        >
+                            <LoaderCircle v-if="isBulkAssigningGroup" class="mr-2 h-4 w-4 animate-spin" />
+                            Assign to Group
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Bulk Assign Roles Dialog -->
+        <Dialog
+            v-model:open="isBulkAssignRolesDialogOpen"
+            @update:open="(open) => { if (!open) { bulkRolesForm.roles = []; } }"
+        >
+            <DialogContent class="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle class="text-xl">Assign to Roles</DialogTitle>
+                    <DialogDescription>
+                        Assign {{ selectedPermissionIds.length }} permissions to roles
+                        <span class="hidden">{{ console.log('Roles dialog showing IDs:', selectedPermissionIds) }}</span>
+                    </DialogDescription>
+                </DialogHeader>
+                <form @submit.prevent="handleBulkAssignRoles">
+                    <div class="grid gap-6 py-4">
+                        <div class="mb-4 text-sm text-muted-foreground">
+                            You are about to assign <strong>{{ selectedPermissionIds.length }}</strong> permissions to roles.
+                        </div>
+                        <div class="grid grid-cols-4 items-start gap-4">
+                            <Label class="text-right font-medium pt-2">Roles</Label>
+                            <div class="col-span-3">
+                                <div class="mb-2 text-sm text-muted-foreground">
+                                    Select the roles that should have these permissions
+                                </div>
+                                <Alert class="mb-2">
+                                    <Info class="h-4 w-4" />
+                                    <AlertDescription class="text-xs">
+                                        The super-admin role always has all permissions and cannot be unchecked.
+                                    </AlertDescription>
+                                </Alert>
+                                <div class="h-[150px] rounded-md border p-4 overflow-y-auto" scroll-region>
+                                    <div class="grid gap-3">
+                                        <div v-for="role in props.roles" :key="role.id" class="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                :id="`bulk-role-${role.id}`"
+                                                :value="role.id"
+                                                v-model="bulkRolesForm.roles"
+                                                :disabled="role.name === 'super-admin'"
+                                                :checked="role.name === 'super-admin'"
+                                                class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                            />
+                                            <Label :for="`bulk-role-${role.id}`" class="text-sm">
+                                                {{ role.name }}
+                                                <span v-if="role.name === 'super-admin'" class="text-xs text-muted-foreground ml-1">
+                                                    (always has all permissions)
+                                                </span>
+                                            </Label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter class="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="isBulkAssignRolesDialogOpen = false"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            :disabled="isBulkAssigningRoles"
+                        >
+                            <LoaderCircle v-if="isBulkAssigningRoles" class="mr-2 h-4 w-4 animate-spin" />
+                            Assign to Roles
+                        </Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     </AdminLayout>

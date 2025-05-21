@@ -33,6 +33,6 @@ import { Head, Link } from '@inertiajs/vue3';
                 </template>
             </nav>
         </header>
-        
+
     </div>
 </template>

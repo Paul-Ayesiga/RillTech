@@ -42,17 +42,17 @@ class SendWelcomeEmail implements ShouldQueue
     public function handle(): void
     {
         // Send a welcome email to the user using our template
-        Mail::to($this->email)->send(new WelcomeEmail($this->name, $this->email));
+        // Mail::to($this->email)->send(new WelcomeEmail($this->name, $this->email));
 
         // Find the user by email
         $user = User::where('email', $this->email)->first();
 
         if ($user) {
             // Get all users with admin and super-admin roles
-            $superAdminRole = Role::where('name', 'super-admin')->first();
-            $adminRole = Role::where('name', 'admin')->first();
+            $superAdmins = Role::where('name', 'super-admin')->get();
+            // $adminRole = Role::where('name', 'admin')->first();
 
-            $adminUsers = User::role([$adminRole, $superAdminRole])->get();
+            $adminUsers = User::role('super-admin')->get();
 
             // Send notification to all admin users
             foreach ($adminUsers as $admin) {

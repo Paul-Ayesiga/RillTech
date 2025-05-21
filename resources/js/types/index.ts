@@ -42,3 +42,9 @@ export interface Role {
     updated_at: string;
     permissions?: Permission[];
 }
+
+export interface NavItem {
+    title: string;
+    href: string;
+    icon?: any;
+}

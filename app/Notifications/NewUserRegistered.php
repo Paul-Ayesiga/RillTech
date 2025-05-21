@@ -15,7 +15,7 @@ class NewUserRegistered extends Notification implements ShouldQueue
     /**
      * The new user instance.
      */
-    protected User $newUser;
+    public User $newUser;
 
     /**
      * Create a new notification instance.

@@ -22,14 +22,10 @@ interface Notification {
     id: string;
     type: string;
     data: {
-        message: string;
-        type: string;
-        user: {
             id: number;
             name: string;
             email: string;
             created_at: string;
-        }
     };
     read_at: string | null;
     created_at: string;
@@ -124,14 +120,14 @@ const deleteAllNotifications = async () => {
         notifications.value = [];
         unreadCount.value = 0;
 
-        toast('All notifications deleted', {
+        toast.success('All notifications deleted', {
             description: 'All notifications have been deleted successfully'
         });
     } catch (error) {
         console.error('Failed to delete all notifications', error);
-        toast('Error', {
+        toast.error('Error', {
             description: 'Failed to delete all notifications',
-            variant: 'destructive'
+
         });
     }
 };
@@ -178,50 +174,58 @@ useEcho(
     `App.Models.User.${user.value.id}`,
     '.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated',
     (e: any) => {
+        // console.log(e);
+
         // Add the new notification to the list
         const newNotification = {
             id: e.id,
             type: e.type,
-            data: e.data,
+            data: e.user,
             read_at: null,
             created_at: e.created_at || new Date().toISOString()
         };
-
+        // console.log(newNotification);
         notifications.value = [newNotification, ...notifications.value];
         unreadCount.value++;
 
         // Show toast notification
-        if (e.data && typeof e.data === 'object') {
-            const message = e.data.message || 'New notification received';
+        if (e.user && typeof e.user === 'object') {
+            const message = e.message || 'New notification received';
             let description = '';
-            const notificationType = e.type || e.data.type || 'info';
+            const notificationType = e.type  || 'info';
 
-            if (e.data.user && typeof e.data.user === 'object') {
-                const userName = e.data.user.name || 'Unknown';
-                const userEmail = e.data.user.email || '';
+            if (e.user && typeof e.user === 'object') {
+                const userName = e.user.name || 'Unknown';
+                const userEmail = e.user.email || '';
                 description = userEmail ? `${userName} (${userEmail})` : userName;
             }
 
             // Use different toast variants based on notification type
             switch (notificationType) {
-                case 'user_registered':
-                    toast(message, { description });
+                case 'App\\Notifications\\NewUserRegistered':
+                    toast.info(message, {
+                        description: description
+                     });
                     break;
                 case 'error':
-                    toast.error(message, { description });
+                    toast.error(message, {
+                        description : description});
                     break;
                 case 'success':
-                    toast.success(message, { description });
+                    toast.success(message, {
+                        description: description });
                     break;
                 case 'info':
-                    toast.info(message, { description });
+                    toast.info(message, {
+                        description: description});
                     break;
                 default:
-                    toast(message, { description });
+                    toast(message, {
+                        description: description });
             }
         } else {
             // Fallback if data is not in expected format
-            toast('New notification received', {
+            toast.info('New notification received', {
                 description: 'Unknown content'
             });
         }
@@ -238,7 +242,8 @@ onMounted(() => {
         <DropdownMenuTrigger as-child>
             <Button variant="ghost" size="icon" class="relative">
                 <Bell class="h-5 w-5" />
-                <Badge v-if="unreadCount > 0" class="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
+                <Badge v-if="unreadCount > 0"
+                    class="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
                     {{ unreadCount > 9 ? '9+' : unreadCount }}
                 </Badge>
             </Button>
@@ -250,7 +255,8 @@ onMounted(() => {
                     <Button v-if="unreadCount > 0" variant="ghost" size="sm" @click="markAllAsRead" class="text-xs h-7">
                         Mark all as read
                     </Button>
-                    <Button v-if="notifications.length > 0" variant="ghost" size="sm" @click="deleteAllNotifications" class="text-xs h-7 text-destructive hover:text-destructive">
+                    <Button v-if="notifications.length > 0" variant="ghost" size="sm" @click="deleteAllNotifications"
+                        class="text-xs h-7 text-destructive hover:text-destructive">
                         Delete all
                     </Button>
                 </div>
@@ -266,47 +272,38 @@ onMounted(() => {
             </div>
 
             <div v-else class="max-h-[300px] overflow-y-auto">
-                <DropdownMenuItem
-                    v-for="notification in notifications"
-                    :key="notification.id"
-                    @click="markAsRead(notification)"
-                    :class="[
+                <DropdownMenuItem v-for="notification in notifications" :key="notification.id"
+                    @click="markAsRead(notification)" :class="[
                         'flex flex-col items-start py-2 px-4 cursor-pointer',
                         { 'bg-muted/50': !notification.read_at }
-                    ]"
-                >
+                    ]">
                     <div class="flex justify-between w-full">
-                        <div class="flex items-center gap-2">
-                            <component
-                                :is="getNotificationIcon(notification.type || notification.data?.type || '')"
-                                class="h-4 w-4"
-                                :class="getNotificationColor(notification.type || notification.data?.type || '')"
-                            />
-                            <span class="font-medium">{{ notification.data?.message || 'New notification' }}</span>
+                        <div class="flex items-center gap-2 ">
+                            <component :is="getNotificationIcon(notification.type || '')" class="h-4 w-4"
+                                :class="getNotificationColor(notification.type || '')" />
+                            <div class="flex flex-col">
+                                <span v-if="notification.data?.email" class="text-xs text-muted-foreground">
+                                    {{ notification.data.email }}
+                                </span>
+                                <span v-if="notification.data?.name" class="text-xs text-muted-foreground">
+                                    {{ notification.data.name }}
+                                </span>
+                                <span v-if="notification.data?.created_at" class="text-xs text-muted-foreground">
+                                    Joined {{ formatDate(notification.data.created_at) }}
+                                </span>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                class="h-5 w-5 text-destructive hover:text-destructive"
-                                @click="(e) => deleteNotification(notification, e)"
-                            >
+                        <div class="right-0">
+                            <Button variant="ghost" size="icon" class="h-5 w-5 text-destructive hover:text-destructive"
+                                @click="(e) => deleteNotification(notification, e)">
                                 <Trash2 class="h-4 w-4" />
                             </Button>
-                            <span class="text-xs text-muted-foreground">{{ formatDate(notification.created_at) }}</span>
                         </div>
                     </div>
-                    <div class="flex flex-col mt-1">
-                        <span v-if="notification.data?.user?.email" class="text-xs text-muted-foreground">
-                            {{ notification.data.user.email }}
-                        </span>
-                        <span v-if="notification.data?.user?.name" class="text-xs text-muted-foreground">
-                            {{ notification.data.user.name }}
-                        </span>
-                        <span v-if="notification.data?.user?.created_at" class="text-xs text-muted-foreground">
-                            Joined {{ formatDate(notification.data.user.created_at) }}
-                        </span>
+                    <div class="flex flex-col mt-1 mx-6">
+                        <small class="text-xs text-muted-foreground">{{ formatDate(notification.created_at)}}</small>
                     </div>
+
                 </DropdownMenuItem>
             </div>
         </DropdownMenuContent>

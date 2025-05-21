@@ -207,4 +207,41 @@
   body {
     @apply bg-background text-foreground;
   }
+
+
+
+   /* Smooth Scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* GSAP will handle smooth scrolling for JavaScript interactions */
+
+  /* Custom Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border-radius: 10px;
+    opacity: 0.7;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+    opacity: 1;
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary) transparent;
+  }
 }
