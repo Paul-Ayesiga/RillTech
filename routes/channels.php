@@ -19,3 +19,11 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 
+Broadcast::channel('newsletter-subscription', function (User $user) {
+    return  $user->hasRole('super-admin') ;
+});
+
+Broadcast::channel('user-contacted', function (User $user) {
+    return  $user->hasRole('super-admin') ;
+});
+

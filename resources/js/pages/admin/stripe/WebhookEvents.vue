@@ -79,7 +79,7 @@ const getEventTypeColor = (type) => {
   <Head title="Webhook Events" />
 
   <AdminLayout :breadcrumbs="breadcrumbs">
-    <div class="container py-6">
+    <div class="container py-6 px-3">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">Webhook Events</h1>
         <div class="flex items-center gap-2">

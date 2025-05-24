@@ -3,15 +3,19 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AdminSidebar from '@/components/AdminSidebar.vue';
 import AdminSidebarHeader from '@/components/AdminSidebarHeader.vue';
-import type { BreadcrumbItemType } from '@/types';
+import { useScrollPreservation } from '@/composables/useScrollPreservation';
+import type { BreadcrumbItem } from '@/types';
 
 interface Props {
-    breadcrumbs?: BreadcrumbItemType[];
+    breadcrumbs?: BreadcrumbItem[];
 }
 
 withDefaults(defineProps<Props>(), {
     breadcrumbs: () => [],
 });
+
+// Initialize scroll preservation
+useScrollPreservation();
 </script>
 
 <template>

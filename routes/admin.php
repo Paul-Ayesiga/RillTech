@@ -7,14 +7,15 @@ use App\Http\Controllers\Admin\RolesPermissionsController;
 use App\Http\Controllers\Admin\PermissionGroupController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\NewsletterSubscriptionController;
+use App\Http\Controllers\Admin\ContactSubmissionController;
+use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::prefix('admin')->middleware(['auth', 'verified', 'role:super-admin'])->group(function () {
+Route::prefix('admin')->middleware(['auth', 'verified', 'user.status', 'role:admin|super-admin'])->group(function () {
 
-    Route::get('dashboard', function () {
-        return Inertia::render('admin/Dashboard');
-    })->name('admin.dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
 
     // Roles and Permissions Management
     Route::get('roles-permissions', [RolesPermissionsController::class, 'index'])->name('admin.roles-permissions');
@@ -61,13 +62,24 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'role:super-admin'])->gr
     Route::post('settings/session/logout-others', [SessionController::class, 'logoutOthers'])->name('admin.session.logout.others');
 
     // Notification routes
-    Route::get('notifications', [NotificationController::class, 'index']);
-    Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
-    Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-    Route::delete('notifications/{id}', [NotificationController::class, 'delete']);
-    Route::delete('notifications', [NotificationController::class, 'deleteAll']);
+    Route::get('notifications', [NotificationController::class, 'index'])->name('admin.notifications.index');
+    Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('admin.notifications.read');
+    Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('admin.notifications.mark-all-read');
+    Route::delete('notifications/{id}', [NotificationController::class, 'delete'])->name('admin.notifications.delete');
+    Route::delete('notifications', [NotificationController::class, 'deleteAll'])->name('admin.notifications.delete-all');
 
-    // User Management
+    // User Management - Specific routes MUST come before resource routes
+    Route::get('users/export-excel', [UserController::class, 'exportExcel'])->name('admin.users.export-excel');
+    Route::get('users/export-pdf', [UserController::class, 'exportPdf'])->name('admin.users.export-pdf');
+    Route::post('users/bulk-delete', [UserController::class, 'bulkDelete'])->name('admin.users.bulk-delete');
+    Route::post('users/bulk-assign-roles', [UserController::class, 'bulkAssignRoles'])->name('admin.users.bulk-assign-roles');
+    Route::post('users/bulk-email', [UserController::class, 'bulkEmail'])->name('admin.users.bulk-email');
+    Route::put('users/{user}/roles-permissions', [UserController::class, 'updateRolesPermissions'])->name('admin.users.update-roles-permissions');
+    Route::patch('users/{user}/suspend', [UserController::class, 'suspend'])->name('admin.users.suspend');
+    Route::patch('users/{user}/ban', [UserController::class, 'ban'])->name('admin.users.ban');
+    Route::patch('users/{user}/activate', [UserController::class, 'activate'])->name('admin.users.activate');
+
+    // User resource routes
     Route::resource('users', UserController::class)->names([
         'index' => 'admin.users.index',
         'create' => 'admin.users.create',
@@ -77,4 +89,29 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'role:super-admin'])->gr
         'update' => 'admin.users.update',
         'destroy' => 'admin.users.destroy',
     ]);
+
+    // Newsletter Subscription Management
+    Route::resource('newsletter-subscriptions', NewsletterSubscriptionController::class)->names([
+        'index' => 'admin.newsletter-subscriptions.index',
+        'destroy' => 'admin.newsletter-subscriptions.destroy',
+    ])->only(['index', 'destroy']);
+
+    // Newsletter bulk operations
+    Route::post('newsletter-subscriptions/bulk-delete', [NewsletterSubscriptionController::class, 'bulkDelete'])->name('admin.newsletter-subscriptions.bulk-delete');
+    Route::post('newsletter-subscriptions/bulk-email', [NewsletterSubscriptionController::class, 'sendBulkEmail'])->name('admin.newsletter-subscriptions.bulk-email');
+    Route::get('newsletter-subscriptions/export-csv', [NewsletterSubscriptionController::class, 'exportCsv'])->name('admin.newsletter-subscriptions.export-csv');
+
+    // Contact Submission Management
+    Route::resource('contact-submissions', ContactSubmissionController::class)->names([
+        'index' => 'admin.contact-submissions.index',
+        'update' => 'admin.contact-submissions.update',
+        'destroy' => 'admin.contact-submissions.destroy',
+    ])->only(['index', 'update', 'destroy']);
+
+    // Contact submission email reply
+    Route::post('contact-submissions/{contactSubmission}/reply', [ContactSubmissionController::class, 'sendReply'])->name('admin.contact-submissions.reply');
+
+    // Contact bulk operations
+    Route::post('contact-submissions/bulk-delete', [ContactSubmissionController::class, 'bulkDelete'])->name('admin.contact-submissions.bulk-delete');
+    Route::get('contact-submissions/export-csv', [ContactSubmissionController::class, 'exportCsv'])->name('admin.contact-submissions.export-csv');
 });

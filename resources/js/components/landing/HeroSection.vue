@@ -14,80 +14,189 @@ const heroImage = ref(null);
 const heroGradient = ref(null);
 
 onMounted(() => {
-  // Initial entrance animation
-  const entranceTl = gsap.timeline();
+  // Ensure CTA buttons are visible immediately as fallback
+  const ctaButtons = document.querySelectorAll('.hero-cta a') as NodeListOf<HTMLElement>;
+  ctaButtons.forEach(button => {
+    button.style.opacity = '1';
+    button.style.transform = 'scale(1)';
+    button.style.visibility = 'visible';
+  });
 
-  // Animate hero elements with split text effect
-  const titleSplitText = createSplitText('.hero-title-text');
+  // Simple CSS-based animation approach as fallback
+  const heroElements = document.querySelectorAll('.hero-title, .hero-subtitle, .hero-cta, .hero-image') as NodeListOf<HTMLElement>;
+  heroElements.forEach((element, index) => {
+    element.style.opacity = '1';
+    element.style.visibility = 'visible';
+    element.style.animation = `fadeInUp 0.8s ease-out ${index * 0.2}s both`;
+  });
 
-  entranceTl
-    // Animate the background gradient first
-    .from('.hero-gradient', {
-      opacity: 0,
-      scale: 1.5,
-      duration: 1.5,
-      ease: 'power2.out'
-    })
-    // Animate each character of the title
-    .from(titleSplitText.chars, {
-      opacity: 0,
-      y: 100,
-      rotationX: -90,
-      stagger: 0.02,
-      duration: 0.8,
-      ease: 'back.out(1.7)'
-    }, '-=1')
-    // Animate the subtitle with a reveal effect
-    .from('.hero-subtitle', {
-      clipPath: 'polygon(0 0, 0 0, 0 100%, 0% 100%)',
-      opacity: 0,
-      duration: 1,
-      ease: 'power4.out'
-    }, '-=0.4')
-    // Animate the CTA buttons with a bounce effect
-    .from('.hero-cta a', {
-      scale: 0,
-      opacity: 0,
-      stagger: 0.2,
-      duration: 0.7,
-      ease: 'back.out(1.7)'
-    }, '-=0.6')
-    // Animate the "Credit card required" callout
-    .from('.hero-cta + div div', {
-      scale: 0.9,
-      opacity: 0,
-      duration: 0.5,
-      ease: 'back.out(1.7)'
-    }, '-=0.3')
-    // Animate the enterprise option
-    .from('.hero-cta + div + div a', {
-      x: -10,
-      opacity: 0,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.2')
-    // Animate the hero image with a reveal effect
-    .from('.hero-image', {
-      y: 60,
-      opacity: 0,
-      duration: 1,
-      ease: 'power2.out'
-    }, '-=0.8')
-    // Animate the floating UI elements with a staggered entrance
-    .from(['.floating-ui-1', '.floating-ui-2'], {
-      scale: 0,
-      opacity: 0,
-      stagger: 0.2,
-      duration: 0.7,
-      ease: 'back.out(1.7)'
-    }, '-=0.6');
+  // Add a small delay to ensure DOM is ready, then try GSAP animations
+  setTimeout(() => {
+    try {
+      // Only run GSAP animations if GSAP is available and working
+      if (typeof gsap !== 'undefined') {
+        // Simple entrance animation without complex effects
+        const entranceTl = gsap.timeline();
 
-  // Setup scroll-based animations
-  setupScrollAnimations();
+        // Simple fade in for background
+        gsap.from('.hero-gradient', {
+          opacity: 0,
+          duration: 1,
+          ease: 'power2.out'
+        });
 
-  // Setup continuous floating animations
-  setupFloatingAnimations();
+        // Simple title animation
+        gsap.from('.hero-title', {
+          y: 30,
+          opacity: 0,
+          duration: 0.8,
+          ease: 'power2.out'
+        });
+
+        // Simple subtitle animation
+        gsap.from('.hero-subtitle', {
+          y: 20,
+          opacity: 0,
+          duration: 0.8,
+          delay: 0.2,
+          ease: 'power2.out'
+        });
+
+        // Simple CTA animation - ensure buttons remain visible
+        gsap.fromTo('.hero-cta a', {
+          y: 20,
+          opacity: 0
+        }, {
+          y: 0,
+          opacity: 1,
+          duration: 0.6,
+          delay: 0.4,
+          stagger: 0.1,
+          ease: 'power2.out',
+          onComplete: () => {
+            // Ensure buttons are visible after animation
+            ctaButtons.forEach(button => {
+              button.style.opacity = '1';
+              button.style.transform = 'scale(1)';
+              button.style.visibility = 'visible';
+            });
+          }
+        });
+
+        // Simple image animation with AI agent reveal
+        gsap.fromTo('.hero-image', {
+          y: 40,
+          opacity: 0
+        }, {
+          y: 0,
+          opacity: 1,
+          duration: 1,
+          delay: 0.6,
+          ease: 'power2.out'
+        });
+
+        // Simple image animation - no scale changes to prevent flickering
+        gsap.fromTo('.hero-image img', {
+          opacity: 0
+        }, {
+          opacity: 1,
+          duration: 1,
+          delay: 0.8,
+          ease: 'power2.out',
+          onComplete: () => {
+            // Ensure image stays visible after animation
+            const img = document.querySelector('.hero-image img') as HTMLElement;
+            if (img) {
+              img.style.opacity = '1';
+              img.style.visibility = 'visible';
+              img.style.display = 'block';
+            }
+          }
+        });
+
+        // Animate the agent status overlay
+        gsap.fromTo('.hero-image .absolute.bottom-4', {
+          y: 20,
+          opacity: 0
+        }, {
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          delay: 1.2,
+          ease: 'power2.out'
+        });
+
+        // Setup scroll-based animations (simplified) - temporarily disabled to prevent image flickering
+        // setupScrollAnimations();
+
+        // Setup continuous floating animations (simplified)
+        setupFloatingAnimations();
+      }
+    } catch (error) {
+      console.error('GSAP animation error:', error);
+      // Ensure buttons are visible even if animations fail
+      ctaButtons.forEach(button => {
+        button.style.opacity = '1';
+        button.style.transform = 'scale(1)';
+        button.style.visibility = 'visible';
+      });
+    }
+  }, 100);
 });
+
+// Image handling functions
+const handleImageError = (event: Event) => {
+  console.warn('AI agent image failed to load, showing fallback');
+  const img = event.target as HTMLImageElement;
+  const container = img.parentElement;
+  if (container) {
+    container.innerHTML = `
+      <div class="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+        <div class="text-center">
+          <div class="mx-auto mb-4 h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-foreground">AI Agent</h3>
+          <p class="text-sm text-muted-foreground">Your intelligent assistant</p>
+        </div>
+      </div>
+    `;
+  }
+};
+
+const handleImageLoad = () => {
+  console.log('AI agent image loaded successfully');
+
+  // Ensure image stays visible after load
+  setTimeout(() => {
+    const img = document.querySelector('.hero-image img') as HTMLElement;
+    if (img) {
+      img.style.opacity = '1';
+      img.style.transform = 'scale(1)';
+      img.style.visibility = 'visible';
+      img.style.display = 'block';
+    }
+  }, 100);
+
+  // Set up a periodic check to ensure image stays visible
+  const checkImageVisibility = () => {
+    const img = document.querySelector('.hero-image img') as HTMLElement;
+    if (img && (img.style.opacity === '0' || img.style.visibility === 'hidden')) {
+      img.style.opacity = '1';
+      img.style.transform = 'scale(1)';
+      img.style.visibility = 'visible';
+      img.style.display = 'block';
+    }
+  };
+
+  // Check every 500ms for the first 5 seconds
+  const interval = setInterval(checkImageVisibility, 500);
+  setTimeout(() => clearInterval(interval), 5000);
+};
 
 // Function to create split text effect
 const createSplitText = (selector) => {
@@ -113,119 +222,83 @@ const createSplitText = (selector) => {
   return { chars };
 };
 
-// Setup scroll-based animations
+// Setup scroll-based animations (optimized)
 const setupScrollAnimations = () => {
-  // Parallax effect for background elements
+  // Reduced parallax effect for background elements (less intensive)
   gsap.to('.floating-element-1, .floating-element-2, .floating-element-3', {
-    y: (i, el) => -100 - (i * 50),
+    y: (i, el) => -50 - (i * 25), // Reduced movement
     scrollTrigger: {
       trigger: '#hero',
       start: 'top top',
       end: 'bottom top',
-      scrub: 0.5
+      scrub: 1, // Slower scrub for better performance
+      invalidateOnRefresh: true
     }
   });
 
-  // Parallax for hero image
+  // Simplified parallax for hero image
   gsap.to('.hero-image', {
-    y: 100,
-    scale: 0.95,
+    y: 50, // Reduced movement
     scrollTrigger: {
       trigger: '#hero',
       start: 'top top',
       end: 'bottom top',
-      scrub: 0.5
+      scrub: 1,
+      invalidateOnRefresh: true
     }
   });
 
-  // Parallax for hero text
-  gsap.to('.hero-title, .hero-subtitle', {
-    y: -50,
-    scrollTrigger: {
-      trigger: '#hero',
-      start: 'top top',
-      end: 'bottom top',
-      scrub: 0.5
-    }
-  });
-
-  // Fade out effect as user scrolls
-  gsap.to('#hero', {
-    opacity: 0.5,
-    scrollTrigger: {
-      trigger: '#hero',
-      start: 'center top',
-      end: 'bottom top',
-      scrub: true
-    }
-  });
+  // Removed parallax for hero text to prevent CTA button issues
+  // Removed fade out effect to prevent CTA button visibility issues
 };
 
-// Setup continuous floating animations
+// Setup continuous floating animations (optimized)
 const setupFloatingAnimations = () => {
-  // Create more complex floating animations for background elements
+  // Simplified floating animations for background elements (reduced memory usage)
   gsap.to('.floating-element-1', {
-    y: '-=20',
-    x: '+=10',
-    rotation: 5,
-    duration: 3,
+    y: '-=10', // Reduced movement
+    duration: 4, // Slower animation
     ease: 'sine.inOut',
     repeat: -1,
     yoyo: true
   });
 
   gsap.to('.floating-element-2', {
-    y: '-=15',
-    x: '-=15',
-    rotation: -3,
-    duration: 4,
+    y: '-=8', // Reduced movement
+    duration: 5, // Slower animation
+    ease: 'sine.inOut',
+    repeat: -1,
+    yoyo: true,
+    delay: 1
+  });
+
+  gsap.to('.floating-element-3', {
+    y: '-=12', // Reduced movement
+    duration: 6, // Slower animation
     ease: 'sine.inOut',
     repeat: -1,
     yoyo: true,
     delay: 0.5
   });
 
-  gsap.to('.floating-element-3', {
-    y: '-=25',
-    x: '+=15',
-    rotation: 8,
-    duration: 5,
-    ease: 'sine.inOut',
-    repeat: -1,
-    yoyo: true,
-    delay: 0.2
-  });
+  // Removed complex 3D rotations for hero image to improve performance
 
-  // Add subtle rotation to the hero image
-  gsap.to('.hero-image', {
-    rotationY: 3,
-    rotationX: 3,
-    duration: 6,
-    ease: 'sine.inOut',
-    repeat: -1,
-    yoyo: true
-  });
-
-  // Animate the floating UI elements
+  // Simplified floating UI elements
   gsap.to('.floating-ui-1', {
-    y: -10,
-    x: 5,
-    rotation: 2,
-    duration: 3.5,
+    y: -5, // Reduced movement
+    duration: 4,
     ease: 'sine.inOut',
     repeat: -1,
     yoyo: true
   });
 
   gsap.to('.floating-ui-2', {
-    y: 10,
-    x: -5,
-    rotation: -2,
-    duration: 4,
+    y: 5, // Reduced movement
+    duration: 5,
     ease: 'sine.inOut',
     repeat: -1,
     yoyo: true,
-    delay: 0.7
+    delay: 1
   });
 };
 </script>
@@ -280,12 +353,12 @@ const setupFloatingAnimations = () => {
             <span class="highlight-text absolute inset-0 bg-primary/5 opacity-0"></span>
           </p>
 
-          <div ref="heroCta" class="hero-cta flex flex-col gap-4 sm:flex-row">
-            <a href="#" class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-8 py-3 text-lg font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/30">
+          <div ref="heroCta" class="hero-cta relative z-10 flex flex-col gap-4 sm:flex-row">
+            <a href="#" class="cta-button relative z-10 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-8 py-3 text-lg font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/30" onclick="console.log('Get Started clicked')">
               Get Started
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
-            <a href="#" class="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-8 py-3 text-lg font-medium text-foreground backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-accent hover:text-accent-foreground">
+            <a href="#" class="cta-button relative z-10 inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-8 py-3 text-lg font-medium text-foreground backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-accent hover:text-accent-foreground" onclick="console.log('Schedule Demo clicked')">
               Schedule a Demo
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
             </a>
@@ -313,37 +386,50 @@ const setupFloatingAnimations = () => {
           </div>
         </div>
 
-        <!-- Hero image with enhanced 3D effect -->
+        <!-- Hero image with AI Agent -->
         <div ref="heroImage" class="hero-image relative mx-auto max-w-lg perspective-1000 lg:ml-auto">
-          <!-- Main interface mockup with 3D effect -->
-          <div class="relative rounded-lg border border-border/50 bg-card/50 p-2 shadow-xl backdrop-blur-sm transition-transform duration-500 hover:rotate-y-5 hover:scale-105">
-            <!-- Window controls -->
-            <div class="absolute -top-3 left-4 flex items-center gap-1.5">
-              <div class="h-3 w-3 rounded-full bg-red-500"></div>
-              <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
-              <div class="h-3 w-3 rounded-full bg-green-500"></div>
-            </div>
+          <!-- AI Agent Image Container -->
+          <div class="relative aspect-square overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-background/80 p-4 shadow-2xl backdrop-blur-sm transition-transform duration-500 hover:scale-105">
+            <!-- Background gradient overlays for better integration -->
+            <div class="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent"></div>
+            <div class="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/10"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-transparent via-primary/5 to-background/40"></div>
 
-            <!-- Interface content -->
-            <div class="rounded-md bg-card p-4">
-              <div class="grid grid-cols-3 gap-4">
-                <!-- Left sidebar -->
-                <div class="col-span-1 space-y-3">
-                  <div class="h-8 rounded-md bg-muted"></div>
-                  <div class="h-24 rounded-md bg-muted"></div>
-                  <div class="h-12 rounded-md bg-muted"></div>
-                  <div class="h-12 rounded-md bg-muted"></div>
-                </div>
+            <!-- AI Agent Image -->
+            <div class="relative h-full w-full overflow-hidden rounded-xl">
+              <img
+                src="/images/ai2.jpg"
+                alt="AI Agent Assistant"
+                class="h-full w-full object-cover object-center transition-all duration-700 hover:scale-110"
+                style="filter: contrast(1.1) brightness(1.05) saturate(0.9) hue-rotate(5deg);"
+                loading="lazy"
+                @error="handleImageError"
+                @load="handleImageLoad"
+              />
 
-                <!-- Main content area -->
-                <div class="col-span-2 space-y-3">
-                  <div class="h-8 rounded-md bg-muted"></div>
-                  <div class="grid grid-cols-2 gap-3">
-                    <!-- Animated component -->
-                    <div class="h-24 rounded-md bg-primary/20 transition-all duration-700 hover:bg-primary/30"></div>
-                    <div class="h-24 rounded-md bg-muted"></div>
+              <!-- Subtle color overlay to match theme -->
+              <div class="absolute inset-0 bg-gradient-to-t from-background/50 via-primary/5 to-transparent mix-blend-overlay"></div>
+              <div class="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-background/30 mix-blend-soft-light"></div>
+
+              <!-- Agent status overlay -->
+              <div class="absolute bottom-4 left-4 right-4">
+                <div class="rounded-lg bg-background/90 backdrop-blur-md border border-border/50 p-3 shadow-lg transition-all duration-300 hover:bg-background/95">
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/30">
+                      <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50"></div>
+                    </div>
+                    <div>
+                      <h3 class="text-sm font-semibold text-foreground">AI Agent Online</h3>
+                      <p class="text-xs text-muted-foreground">Ready to assist you</p>
+                    </div>
+                    <div class="ml-auto">
+                      <div class="flex items-center gap-1">
+                        <div class="h-1 w-1 rounded-full bg-primary animate-pulse"></div>
+                        <div class="h-1 w-1 rounded-full bg-primary animate-pulse" style="animation-delay: 0.2s;"></div>
+                        <div class="h-1 w-1 rounded-full bg-primary animate-pulse" style="animation-delay: 0.4s;"></div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="h-32 rounded-md bg-muted"></div>
                 </div>
               </div>
             </div>
@@ -368,11 +454,14 @@ const setupFloatingAnimations = () => {
           </div>
 
           <!-- Code snippet floating element -->
-          <div class="absolute -bottom-2 right-0 hidden rounded-lg border border-border bg-card/90 p-3 shadow-lg backdrop-blur-sm transition-transform duration-300 hover:scale-105 hover:shadow-xl md:block">
+          <div class="absolute -bottom-2 right-0 hidden rounded-lg border border-border bg-card/95 p-4 shadow-lg backdrop-blur-sm transition-transform duration-300 hover:scale-105 hover:shadow-xl md:block">
             <div class="font-mono text-xs text-muted-foreground">
-              <div class="text-primary">function createAgent() {</div>
-              <div class="pl-4">return new AI.Agent();</div>
-              <div>}</div>
+              <div class="text-green-500">// Create AI Agent</div>
+              <div class="text-primary">const agent = new AI.Agent({</div>
+              <div class="pl-4 text-blue-400">model: 'gpt-4',</div>
+              <div class="pl-4 text-blue-400">capabilities: ['chat', 'analyze']</div>
+              <div class="text-primary">});</div>
+              <div class="text-green-500">// Ready to assist! 🤖</div>
             </div>
           </div>
         </div>
@@ -382,6 +471,16 @@ const setupFloatingAnimations = () => {
 </template>
 
 <style scoped>
+/* Ensure CTA buttons are always visible as fallback */
+.hero-cta a,
+.cta-button {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  visibility: visible !important;
+  display: inline-flex !important;
+  pointer-events: auto !important;
+}
+
 /* Particle animation */
 @keyframes float-up {
   0% { transform: translateY(0) translateX(0); opacity: 0.3; }
@@ -411,5 +510,78 @@ const setupFloatingAnimations = () => {
 
 .rotate-y-5:hover {
   transform: rotateY(5deg);
+}
+
+/* Ensure all hero content is visible */
+.hero-title,
+.hero-subtitle,
+.hero-cta,
+.hero-image {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* CSS fallback animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* AI Agent image enhancements - Force visibility */
+.hero-image img {
+  transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  object-position: center center !important;
+  min-height: 100% !important;
+  min-width: 100% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  transform: scale(1) !important;
+}
+
+.hero-image:hover img {
+  filter: contrast(1.15) brightness(1.1) saturate(1.0) hue-rotate(8deg) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Ensure proper aspect ratio */
+.hero-image .aspect-square {
+  aspect-ratio: 1 / 1;
+}
+
+/* Force image container to be visible */
+.hero-image .relative.h-full.w-full {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Enhanced gradient overlays */
+.hero-image .absolute[class*="bg-gradient"] {
+  transition: opacity 0.5s ease-in-out;
+}
+
+.hero-image:hover .absolute[class*="bg-gradient"] {
+  opacity: 0.8;
+}
+
+/* Agent status indicator animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.8), 0 0 30px rgba(34, 197, 94, 0.4);
+  }
+}
+
+.hero-image .bg-green-500 {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 </style>

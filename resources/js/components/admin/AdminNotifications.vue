@@ -23,6 +23,7 @@ interface Notification {
     type: string;
     data: {
             id: number;
+            message: string;
             name: string;
             email: string;
             created_at: string;
@@ -140,7 +141,7 @@ const formatDate = (date: string) => {
 // Get notification icon based on type
 const getNotificationIcon = (type: string) => {
     switch (type) {
-        case 'user_registered':
+        case 'App\\Notifications\\NewUserRegistered':
             return UserPlus;
         case 'error':
             return AlertCircle;
@@ -232,6 +233,25 @@ useEcho(
     }
 );
 
+useEcho(
+    'newsletter-subscription',
+    'userSubcribedToNewsletter',
+    (e: any) => {
+        toast.info('NewsLetter Subscription',{
+            description: e.email
+        })
+});
+
+useEcho(
+    'user-contacted',
+    'userContacted',
+    (e: any) => {
+        const message = 'User Inquiry, '+ e.email;
+        toast.info( message ,{
+            description: e.message
+        })
+    });
+
 onMounted(() => {
     loadNotifications();
 });
@@ -240,7 +260,7 @@ onMounted(() => {
 <template>
     <DropdownMenu>
         <DropdownMenuTrigger as-child>
-            <Button variant="ghost" size="icon" class="relative">
+            <Button variant="ghost" size="icon" class="relative" data-notification-trigger>
                 <Bell class="h-5 w-5" />
                 <Badge v-if="unreadCount > 0"
                     class="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
@@ -280,16 +300,14 @@ onMounted(() => {
                     <div class="flex justify-between w-full">
                         <div class="flex items-center gap-2 ">
                             <component :is="getNotificationIcon(notification.type || '')" class="h-4 w-4"
-                                :class="getNotificationColor(notification.type || '')" />
+                                :class="getNotificationColor(notification.type || '')" /><br>
+
                             <div class="flex flex-col">
+                                <span v-if="notification.data?.message" class="text-sm text-wrap text-muted-foreground">
+                                    {{ notification.data.message }}
+                                </span>
                                 <span v-if="notification.data?.email" class="text-xs text-muted-foreground">
                                     {{ notification.data.email }}
-                                </span>
-                                <span v-if="notification.data?.name" class="text-xs text-muted-foreground">
-                                    {{ notification.data.name }}
-                                </span>
-                                <span v-if="notification.data?.created_at" class="text-xs text-muted-foreground">
-                                    Joined {{ formatDate(notification.data.created_at) }}
                                 </span>
                             </div>
                         </div>

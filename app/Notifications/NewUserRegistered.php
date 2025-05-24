@@ -65,6 +65,7 @@ class NewUserRegistered extends Notification implements ShouldQueue
                 'id' => $this->newUser->id,
                 'name' => $this->newUser->name,
                 'email' => $this->newUser->email,
+                'message' => 'New User Registered',
                 'created_at' => $this->newUser->created_at,
             ],
             'message' => 'New user registered: ' . $this->newUser->name,

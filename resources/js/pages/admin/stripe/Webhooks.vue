@@ -88,7 +88,7 @@ const prepareUpdateWebhook = (webhook) => {
 // Submit update webhook form
 const submitUpdateWebhook = () => {
   if (!selectedWebhook.value) return;
-  
+
   updateWebhookForm.put(route('admin.stripe.webhooks.update', selectedWebhook.value.id), {
     onSuccess: () => {
       toast.success('Webhook endpoint updated successfully');
@@ -143,7 +143,7 @@ const deselectAllEvents = (form) => {
   <Head title="Stripe Webhooks" />
 
   <AdminLayout :breadcrumbs="breadcrumbs">
-    <div class="container py-6">
+    <div class="container py-6 px-3">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">Stripe Webhooks</h1>
         <div class="flex items-center gap-2">

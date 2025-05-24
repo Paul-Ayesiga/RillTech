@@ -10,3 +10,11 @@ export function valueUpdater<T>(updaterOrValue: ((old: T) => T) | T, ref: Ref<T>
     ref.value = updaterOrValue
   }
 }
+
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs));
+}
+

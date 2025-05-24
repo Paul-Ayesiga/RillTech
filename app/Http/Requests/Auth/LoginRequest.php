@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Http\Middleware\CheckUserStatus;
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +48,22 @@ class LoginRequest extends FormRequest
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
+            ]);
+        }
+
+        // Check user status after successful authentication
+        $user = Auth::user();
+        $status = $user->status ?? CheckUserStatus::STATUS_ACTIVE;
+
+        if (CheckUserStatus::isInactiveStatus($status)) {
+            // Logout the user immediately
+            Auth::logout();
+
+            // Clear rate limiter since credentials were valid
+            RateLimiter::clear($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'status' => CheckUserStatus::getStatusMessage($status),
             ]);
         }
 

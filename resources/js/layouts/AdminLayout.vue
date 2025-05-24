@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import AdminLayout from '@/layouts/admin/AdminSidebarLayout.vue';
-import type { BreadcrumbItemType } from '@/types';
+import AdminCommandPalette from '@/components/admin/AdminCommandPalette.vue';
+import type { BreadcrumbItem } from '@/types';
 import { Toaster } from '@/components/ui/sonner'
 
 interface Props {
-    breadcrumbs?: BreadcrumbItemType[];
+    breadcrumbs?: BreadcrumbItem[];
 }
 
 withDefaults(defineProps<Props>(), {
@@ -14,6 +15,7 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <Toaster />
+    <AdminCommandPalette />
     <AdminLayout :breadcrumbs="breadcrumbs">
         <slot />
     </AdminLayout>

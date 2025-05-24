@@ -5,6 +5,7 @@ import NavAdmin from '@/components/NavAdmin.vue';
 import NavAdminSettings from '@/components/NavAdminSettings.vue';
 import NavStripeManagement from '@/components/NavStripeManagement.vue';
 import NavUserManagement from '@/components/NavUserManagement.vue';
+import NavCommunicationManagement from '@/components/NavCommunicationManagement.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarSeparator } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
@@ -51,6 +52,8 @@ const footerNavItems: NavItem[] = [
             <NavMain :items="mainNavItems" />
             <SidebarSeparator class="my-4" />
             <NavUserManagement />
+            <SidebarSeparator class="my-4" />
+            <NavCommunicationManagement />
             <SidebarSeparator class="my-4" />
             <NavAdminSettings />
             <SidebarSeparator class="my-4" />

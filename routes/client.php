@@ -5,7 +5,7 @@ use App\Http\Controllers\Client\Settings\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::middleware(['auth', 'verified', 'role_or_permission:client|super-admin'])->group(function () {
+Route::middleware(['auth', 'verified', 'user.status', 'role_or_permission:client|super-admin'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('client/Dashboard');
     })->name('dashboard');
