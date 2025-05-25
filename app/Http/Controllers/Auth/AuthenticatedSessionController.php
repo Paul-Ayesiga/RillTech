@@ -40,6 +40,10 @@ class AuthenticatedSessionController extends Controller
             return redirect()->intended(route('admin.dashboard', absolute: false));
         }
 
+        // For client users, set session flag to indicate they just logged in
+        // This will trigger the subscription middleware to handle pricing redirect if needed
+        session(['just_logged_in' => true]);
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

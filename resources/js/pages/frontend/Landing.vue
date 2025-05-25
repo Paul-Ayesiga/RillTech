@@ -194,6 +194,30 @@ const onChatClosed = () => {
 
 // Page props
 const page = usePage();
+
+// Handle preloader finished and check for auto-scroll to pricing
+const handlePreloaderFinished = () => {
+  preloader.hide();
+
+  // Check if we need to auto-scroll to pricing section after preloader
+  setTimeout(() => {
+    const urlHash = window.location.hash;
+    const shouldShowPricing = page.props.show_pricing ||
+                             page.props.subscription_context ||
+                             urlHash === '#pricing';
+
+    if (shouldShowPricing) {
+      const pricingSection = document.getElementById('pricing');
+      if (pricingSection) {
+        gsap.to(window, {
+          duration: 1.2,
+          scrollTo: pricingSection,
+          ease: "power2.out"
+        });
+      }
+    }
+  }, 300); // Small delay to ensure DOM is ready
+};
 </script>
 
 <template>
@@ -206,7 +230,7 @@ const page = usePage();
 
     <!-- Preloader -->
     <Preloader :show="preloader.isLoading.value" logo-text="RillTech" loading-text="Building your AI experience..."
-        :duration="0" @loaded="preloader.hide" />
+        :duration="0" @loaded="handlePreloaderFinished" />
 
     <div class="landing-page flex min-h-screen w-full flex-col bg-background text-foreground">
         <!-- Navigation -->

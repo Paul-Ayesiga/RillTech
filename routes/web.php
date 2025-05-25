@@ -22,6 +22,9 @@ Route::post('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'un
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
 Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
 
+// Stripe Webhook (must be outside middleware groups)
+Route::post('/stripe/webhook', [App\Http\Controllers\StripeWebhookController::class, 'handleWebhook']);
+
 require __DIR__.'/client.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/admin.php';

@@ -51,6 +51,9 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
+        // Set session flag to indicate user just registered
+        session(['just_registered' => true]);
+
         return to_route('dashboard');
     }
 }

@@ -29,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'user.status' => \App\Http\Middleware\CheckUserStatus::class,
+            'subscription' => \App\Http\Middleware\CheckSubscription::class,
+            'stripe.return' => \App\Http\Middleware\HandleStripeReturn::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

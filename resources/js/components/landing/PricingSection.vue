@@ -1,14 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, inject } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { toast } from 'vue-sonner';
+import { useSubscriptionState } from '@/composables/useSubscriptionState';
+import { Loader2 } from 'lucide-vue-next';
+
+const {
+  isAuthenticated,
+  subscriptionState,
+  subscriptionMessage,
+  ctaText,
+  shouldShowPricing,
+  needsSubscription,
+  canUpgrade
+} = useSubscriptionState();
 
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
@@ -17,6 +29,7 @@ const billingPeriod = ref('monthly');
 const isLoading = ref(true);
 const products = ref([]);
 const errorMessage = ref('');
+const loadingProductId = ref(null); // Track which product is loading
 
 // Function to scroll to the Talk to Us section
 const scrollToTalkToUs = () => {
@@ -126,7 +139,95 @@ onMounted(() => {
       delay: i * 0.2 // Stagger the animations
     });
   });
+
+  // Note: Auto-scroll is now handled by the Landing page after preloader finishes
 });
+
+
+
+// Handle subscription checkout
+const handleSubscriptionAction = async (product: any) => {
+  if (!isAuthenticated.value) {
+    // Redirect to register
+    router.visit(route('register'));
+    return;
+  }
+
+  if (product.name.toLowerCase().includes('enterprise')) {
+    handleEnterpriseContact();
+    return;
+  }
+
+  // Get the price_id directly from the product (since each product already has the correct price for its interval)
+  const priceId = product.price_id;
+
+  if (!priceId) {
+    toast('Price not found for this product');
+    return;
+  }
+
+  // Set loading state for this specific product
+  loadingProductId.value = product.id;
+
+  try {
+    // Create checkout session
+    const response = await axios.post(route('subscription.checkout'), {
+      price_id: priceId
+    });
+
+    if (response.data.checkout_url) {
+      // Keep loading state while redirecting to Stripe
+      toast('Redirecting to checkout...', {
+        description: 'Please wait while we redirect you to Stripe.'
+      });
+
+      // Small delay to show the loading state before redirect
+      setTimeout(() => {
+        window.location.href = response.data.checkout_url;
+      }, 500);
+    } else {
+      toast('Failed to create checkout session');
+      loadingProductId.value = null;
+    }
+  } catch (error) {
+    console.error('Checkout error:', error);
+    toast('Failed to start checkout process');
+    loadingProductId.value = null;
+  }
+};
+
+// Check if a product is loading
+const isProductLoading = (product: any) => {
+  return loadingProductId.value === product.id;
+};
+
+// Get button text for product
+const getButtonText = (product: any) => {
+  if (isProductLoading(product)) {
+    return 'Processing...';
+  }
+
+  if (product.name.toLowerCase().includes('enterprise')) {
+    return 'Contact Sales';
+  }
+
+  if (!isAuthenticated.value) {
+    return 'Get Started';
+  }
+
+  return ctaText.value;
+};
+
+// Get button variant for product
+const getButtonVariant = (product: any) => {
+  return product.is_popular ? 'default' : 'outline';
+};
+
+// Cleanup loading state on component unmount
+onUnmounted(() => {
+  loadingProductId.value = null;
+});
+
 </script>
 
 <template>
@@ -135,7 +236,7 @@ onMounted(() => {
       <div class="mb-16 text-center">
         <h2 class="mb-4 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Simple, Transparent Pricing</h2>
         <p class="mx-auto max-w-2xl text-lg text-muted-foreground">
-          Choose the plan that's right for you. All plans include a 14-day free trial.
+          {{ subscriptionMessage }}
         </p>
 
         <!-- Billing toggle using Tabs -->
@@ -205,21 +306,13 @@ onMounted(() => {
                       </CardContent>
                       <CardFooter>
                         <Button
-                          :variant="product.is_popular ? 'default' : 'outline'"
+                          :variant="getButtonVariant(product)"
                           class="w-full"
-                          v-if="product.name.toLowerCase().includes('enterprise')"
-                          @click="handleEnterpriseContact"
+                          :disabled="isProductLoading(product)"
+                          @click="() => handleSubscriptionAction(product)"
                         >
-                          Contact Sales
-                        </Button>
-                        <Button
-                          v-else
-                          :variant="product.is_popular ? 'default' : 'outline'"
-                          class="w-full"
-                          :as="product.cta_url ? 'a' : 'button'"
-                          :href="product.cta_url"
-                        >
-                          {{ product.cta_text || 'Get Started' }}
+                          <Loader2 v-if="isProductLoading(product)" class="mr-2 h-4 w-4 animate-spin" />
+                          {{ getButtonText(product) }}
                         </Button>
                       </CardFooter>
                     </Card>
@@ -273,21 +366,13 @@ onMounted(() => {
                       </CardContent>
                       <CardFooter>
                         <Button
-                          :variant="product.is_popular ? 'default' : 'outline'"
+                          :variant="getButtonVariant(product)"
                           class="w-full"
-                          v-if="product.name.toLowerCase().includes('enterprise')"
-                          @click="handleEnterpriseContact"
+                          :disabled="isProductLoading(product)"
+                          @click="() => handleSubscriptionAction(product)"
                         >
-                          Contact Sales
-                        </Button>
-                        <Button
-                          v-else
-                          :variant="product.is_popular ? 'default' : 'outline'"
-                          class="w-full"
-                          :as="product.cta_url ? 'a' : 'button'"
-                          :href="product.cta_url"
-                        >
-                          {{ product.cta_text || 'Get Started' }}
+                          <Loader2 v-if="isProductLoading(product)" class="mr-2 h-4 w-4 animate-spin" />
+                          {{ getButtonText(product) }}
                         </Button>
                       </CardFooter>
                     </Card>

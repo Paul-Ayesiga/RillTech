@@ -57,6 +57,37 @@ class User extends Authenticatable
     }
 
     /**
+     * The "booted" method of the model.
+     * Automatically sync customer data with Stripe when user is updated.
+     */
+    protected static function booted(): void
+    {
+        static::updated(\Illuminate\Events\queueable(function (User $customer) {
+            if ($customer->hasStripeId()) {
+                $customer->syncStripeCustomerDetails();
+            }
+        }));
+    }
+
+    /**
+     * Get the customer name that should be synced to Stripe.
+     * Override this method to customize the name field.
+     */
+    public function stripeName(): string|null
+    {
+        return $this->name;
+    }
+
+    /**
+     * Get the customer email that should be synced to Stripe.
+     * Override this method to customize the email field.
+     */
+    public function stripeEmail(): string|null
+    {
+        return $this->email;
+    }
+
+    /**
      * Configure activity logging options
      */
     public function getActivitylogOptions(): LogOptions
