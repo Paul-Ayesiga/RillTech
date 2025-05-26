@@ -4,11 +4,21 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import VideoModal from '@/components/modals/VideoModal.vue';
 
 // Register ScrollTrigger plugin
 gsap.registerPlugin(ScrollTrigger);
 
 const activeTab = ref('build');
+const isVideoModalOpen = ref(false);
+
+const openVideoModal = () => {
+  isVideoModalOpen.value = true;
+};
+
+const closeVideoModal = () => {
+  isVideoModalOpen.value = false;
+};
 
 onMounted(() => {
   // Animate the demo section
@@ -23,7 +33,7 @@ onMounted(() => {
       toggleActions: 'play none none none'
     }
   });
-  
+
   // Animate the demo interface
   gsap.from('.demo-interface', {
     y: 50,
@@ -37,7 +47,7 @@ onMounted(() => {
     },
     delay: 0.3
   });
-  
+
   // Setup chat animation
   setupChatAnimation();
 });
@@ -45,7 +55,7 @@ onMounted(() => {
 const setupChatAnimation = () => {
   // Animate the chat messages appearing one by one
   const messages = document.querySelectorAll('.chat-message');
-  
+
   messages.forEach((message, index) => {
     gsap.from(message, {
       y: 20,
@@ -93,7 +103,7 @@ const chatMessages = [
           <p class="mb-6 text-lg text-muted-foreground">
             Watch how easy it is to build, train, and deploy your own AI assistant. No coding required.
           </p>
-          
+
           <Tabs v-model="activeTab" class="w-full">
             <TabsList class="grid w-full grid-cols-3">
               <TabsTrigger value="build">Build</TabsTrigger>
@@ -134,15 +144,15 @@ const chatMessages = [
               </ul>
             </TabsContent>
           </Tabs>
-          
+
           <div class="mt-8">
-            <Button size="lg" class="gap-2">
+            <Button size="lg" class="gap-2" @click="openVideoModal">
               Watch Full Demo
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </Button>
           </div>
         </div>
-        
+
         <!-- Demo interface -->
         <div class="demo-interface">
           <div class="overflow-hidden rounded-lg border border-border/50 bg-card/50 p-2 shadow-xl backdrop-blur-sm">
@@ -164,7 +174,7 @@ const chatMessages = [
                   </div>
                 </div>
               </div>
-              
+
               <!-- Chat messages -->
               <div class="chat-container h-[300px] overflow-y-auto p-4">
                 <div v-for="(message, index) in chatMessages" :key="index" class="chat-message mb-4">
@@ -175,8 +185,8 @@ const chatMessages = [
                     <div v-if="message.sender === 'ai'" class="h-8 w-8 flex-shrink-0 rounded-full bg-primary/20"></div>
                     <div :class="[
                       'max-w-[80%] rounded-lg p-3',
-                      message.sender === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
+                      message.sender === 'user'
+                        ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
                     ]">
                       <p class="whitespace-pre-line">{{ message.message }}</p>
@@ -185,7 +195,7 @@ const chatMessages = [
                   </div>
                 </div>
               </div>
-              
+
               <!-- Chat input -->
               <div class="border-t border-border/50 p-4">
                 <div class="flex items-center gap-2">
@@ -210,5 +220,12 @@ const chatMessages = [
         </div>
       </div>
     </div>
+
+    <!-- Video Modal -->
+    <VideoModal
+      :open="isVideoModalOpen"
+      @update:open="isVideoModalOpen = $event"
+      @close="closeVideoModal"
+    />
   </section>
 </template>

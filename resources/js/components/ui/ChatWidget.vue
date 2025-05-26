@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import RichTextMessage from './RichTextMessage.vue';
 
 interface Message {
   id: string;
@@ -12,6 +13,10 @@ interface Message {
   sender: 'user' | 'bot';
   timestamp: Date;
   typing?: boolean;
+  avatar?: string;
+  isFallback?: boolean;
+  fallbackReason?: string;
+  aiProvider?: string;
 }
 
 interface Props {
@@ -52,6 +57,18 @@ const isTyping = ref(false);
 const unreadCount = ref(0);
 const messagesContainer = ref<HTMLElement>();
 const scrollContainer = ref<HTMLElement>();
+const streamingMessageId = ref<string | null>(null);
+
+// Generate a persistent session ID for this chat session
+const sessionId = ref(`widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+
+// Reset chat function
+const resetChat = () => {
+  messages.value = [];
+  streamingMessageId.value = null;
+  // Generate new session ID to clear server-side history
+  sessionId.value = `widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
 
 // Computed
 const positionClasses = computed(() => ({
@@ -97,8 +114,40 @@ const addMessage = (content: string, sender: 'user' | 'bot') => {
   });
 };
 
-const addBotMessage = (content: string) => {
-  addMessage(content, 'bot');
+const addBotMessage = (content: string, fallbackInfo?: { isFallback?: boolean; fallbackReason?: string; aiProvider?: string }) => {
+  const message: Message = {
+    id: Date.now().toString(),
+    content,
+    sender: 'bot',
+    timestamp: new Date(),
+    isFallback: fallbackInfo?.isFallback || (window as any).lastResponseFallbackInfo?.isFallback || false,
+    fallbackReason: fallbackInfo?.fallbackReason || (window as any).lastResponseFallbackInfo?.fallbackReason,
+    aiProvider: fallbackInfo?.aiProvider || (window as any).lastResponseFallbackInfo?.aiProvider || 'mistral'
+  };
+
+  messages.value.push(message);
+
+  // Clear the stored fallback info
+  (window as any).lastResponseFallbackInfo = null;
+
+  // Limit messages
+  if (messages.value.length > props.maxMessages) {
+    messages.value = messages.value.slice(-props.maxMessages);
+  }
+
+  // Update unread count if chat is closed
+  if (!isOpen.value) {
+    unreadCount.value++;
+  }
+
+  // Auto scroll to bottom with multiple attempts
+  nextTick(() => {
+    scrollToBottom();
+    // Additional scroll attempt after a short delay for bot messages
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+  });
 };
 
 const addUserMessage = (content: string) => {
@@ -139,21 +188,31 @@ const sendMessage = async () => {
   // Emit event
   emit('message-sent', message);
 
-  // Show typing indicator
+  // Show typing indicator and get streaming AI response
   if (props.showTypingIndicator) {
     isTyping.value = true;
 
-    // Simulate bot response delay
-    setTimeout(() => {
+    try {
+      // Use streaming response for better UX (now with proper CSRF handling)
+      await getStreamingAIResponse(message);
       isTyping.value = false;
-      // Add bot response (this would typically come from your backend)
-      addBotMessage(generateBotResponse(message));
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      isTyping.value = false;
 
-      // Ensure scroll to bottom after bot response
+      // Fallback to non-streaming response
+      try {
+        const aiResponse = await getAIResponse(message);
+        addBotMessage(aiResponse);
+      } catch (fallbackError) {
+        console.error('Fallback response also failed:', fallbackError);
+        addBotMessage("I apologize, but I'm having trouble processing your request right now. Please try again in a moment.");
+      }
+
       setTimeout(() => {
         scrollToBottom();
       }, 50);
-    }, 1000 + Math.random() * 2000);
+    }
   }
 };
 
@@ -183,20 +242,164 @@ const focusInput = () => {
   }
 };
 
-// Simple bot response generator (replace with your AI logic)
-const generateBotResponse = (userMessage: string): string => {
-  const responses = [
-    "That's interesting! Tell me more about that.",
-    "I understand. How can I help you with that?",
-    "Thanks for sharing! Is there anything specific you'd like to know?",
-    "I'm here to help! What would you like to explore?",
-    "Great question! Let me think about that for a moment.",
-    "I'd be happy to assist you with that. Can you provide more details?",
-    "That sounds important. How can I support you with this?",
-    "I see what you mean. What's your main goal here?"
-  ];
+// AI-powered response using RillTech Agent
+const getAIResponse = async (userMessage: string): Promise<string> => {
+  try {
+    const axios = (await import('axios')).default;
 
-  return responses[Math.floor(Math.random() * responses.length)];
+    const response = await axios.post('/api/chat', {
+      message: userMessage,
+      session_id: sessionId.value,
+      context: {
+        page: window.location.pathname,
+        timestamp: new Date().toISOString(),
+        widget: true,
+        isLandingPage: window.location.pathname === '/' || window.location.pathname === '' || window.location.pathname.includes('landing'),
+        availableSections: ['hero', 'features', 'pricing', 'about', 'contact']
+      }
+    }, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      }
+    });
+
+    const data = response.data;
+
+    if (data.success) {
+      // Store fallback info for the next bot message
+      if (data.is_fallback) {
+        (window as any).lastResponseFallbackInfo = {
+          isFallback: true,
+          fallbackReason: data.fallback_reason,
+          aiProvider: data.ai_provider
+        };
+      } else {
+        (window as any).lastResponseFallbackInfo = {
+          isFallback: false,
+          aiProvider: data.ai_provider || 'mistral'
+        };
+      }
+      return data.response;
+    } else {
+      throw new Error(data.message || 'API request failed');
+    }
+  } catch (error) {
+    console.error('Chat API error:', error);
+    return "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.";
+  }
+};
+
+// Streaming AI response for real-time chat
+const getStreamingAIResponse = async (userMessage: string): Promise<void> => {
+  try {
+    // Get XSRF token from cookie (same way Axios does it)
+    const getXSRFToken = () => {
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'XSRF-TOKEN') {
+          return decodeURIComponent(value);
+        }
+      }
+      return null;
+    };
+
+    const xsrfToken = getXSRFToken();
+
+    const response = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': xsrfToken || '',
+      },
+      body: JSON.stringify({
+        message: userMessage,
+        session_id: sessionId.value,
+        context: {
+          page: window.location.pathname,
+          timestamp: new Date().toISOString(),
+          widget: true,
+          isLandingPage: window.location.pathname === '/' || window.location.pathname === '' || window.location.pathname.includes('landing'),
+          availableSections: ['hero', 'features', 'pricing', 'about', 'contact']
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Create a placeholder bot message that we'll update in real-time
+    const botMessage: Message = {
+      id: Date.now().toString(),
+      content: '',
+      sender: 'bot',
+      timestamp: new Date(),
+      avatar: props.botAvatar,
+      isFallback: false,
+      aiProvider: 'mistral'
+    };
+
+    messages.value.push(botMessage);
+    streamingMessageId.value = botMessage.id; // Track which message is streaming
+    scrollToBottom();
+
+    // Read the streaming response
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body reader available');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.chunk) {
+              // Update the bot message content in real-time
+              botMessage.content += data.chunk;
+              // Trigger reactivity by updating the array
+              messages.value = [...messages.value];
+              scrollToBottom();
+            } else if (data.complete) {
+              // Update fallback information when streaming completes
+              if (data.is_fallback) {
+                botMessage.isFallback = true;
+                botMessage.fallbackReason = data.fallback_reason;
+                botMessage.aiProvider = data.ai_provider;
+              } else {
+                botMessage.isFallback = false;
+                botMessage.aiProvider = data.ai_provider || 'mistral';
+              }
+              // Clear streaming ID and trigger reactivity
+              streamingMessageId.value = null;
+              messages.value = [...messages.value];
+              return;
+            } else if (data.error) {
+              throw new Error(data.error);
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse streaming data:', parseError);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Streaming API error:', error);
+    throw error; // Re-throw to trigger fallback
+  }
 };
 
 // Format timestamp
@@ -250,17 +453,33 @@ onUnmounted(() => {
               </p>
             </div>
           </div>
-          <Button
-            @click="toggleChat"
-            variant="ghost"
-            size="sm"
-            class="h-8 w-8 p-0"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 6 6 18"/>
-              <path d="m6 6 12 12"/>
-            </svg>
-          </Button>
+          <div class="flex items-center gap-1">
+            <Button
+              @click="resetChat"
+              variant="ghost"
+              size="sm"
+              class="h-8 w-8 p-0"
+              title="Reset Chat"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M3 21v-5h5"/>
+              </svg>
+            </Button>
+            <Button
+              @click="toggleChat"
+              variant="ghost"
+              size="sm"
+              class="h-8 w-8 p-0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"/>
+                <path d="m6 6 12 12"/>
+              </svg>
+            </Button>
+          </div>
         </div>
 
         <!-- Messages -->
@@ -286,18 +505,48 @@ onUnmounted(() => {
                   'max-w-[80%] rounded-lg px-3 py-2 text-sm',
                   message.sender === 'user'
                     ? 'bg-primary text-primary-foreground'
+                    : message.isFallback
+                    ? 'bg-orange-50 text-orange-900 border border-orange-200 dark:bg-orange-950 dark:text-orange-100 dark:border-orange-800'
                     : 'bg-muted text-foreground'
                 ]"
               >
-                <p>{{ message.content }}</p>
-                <p
-                  :class="[
-                    'text-xs mt-1 opacity-70',
-                    message.sender === 'user' ? 'text-right' : 'text-left'
-                  ]"
-                >
-                  {{ formatTime(message.timestamp) }}
-                </p>
+                <!-- Fallback Indicator -->
+                <div v-if="message.sender === 'bot' && message.isFallback" class="flex items-center gap-1 mb-2 text-xs opacity-75">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                  </svg>
+                  <span>Offline Mode</span>
+                </div>
+
+                <!-- Rich text content for bot messages, plain text for user messages -->
+                <RichTextMessage
+                  v-if="message.sender === 'bot'"
+                  :content="message.content"
+                  :is-streaming="message.id === streamingMessageId"
+                />
+                <p v-else>{{ message.content }}</p>
+
+                <div class="flex items-center justify-between mt-1">
+                  <p
+                    :class="[
+                      'text-xs opacity-70',
+                      message.sender === 'user' ? 'text-right' : 'text-left'
+                    ]"
+                  >
+                    {{ formatTime(message.timestamp) }}
+                  </p>
+
+                  <!-- AI Provider Badge -->
+                  <div v-if="message.sender === 'bot'" class="flex items-center gap-1">
+                    <Badge
+                      :variant="message.isFallback ? 'secondary' : 'outline'"
+                      class="text-xs px-1 py-0 h-4"
+                    >
+                      {{ message.isFallback ? 'Offline' : (message.aiProvider === 'mistral' ? 'AI' : message.aiProvider) }}
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </div>
 

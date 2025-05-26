@@ -35,4 +35,34 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    ],
+
+    'mistral' => [
+        'api_key' => env('MISTRAL_API_KEY'),
+        'model' => env('MISTRAL_MODEL', 'mistral-large-latest'),
+    ],
+
+    'voyage' => [
+        'api_key' => env('VOYAGE_API_KEY'),
+        'model' => env('VOYAGE_MODEL', 'voyage-large-2'),
+    ],
+
+    'pinecone' => [
+        'api_key' => env('PINECONE_API_KEY'),
+        'index_url' => env('PINECONE_INDEX_URL'),
+    ],
+
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    'inspector' => [
+        'ingestion_key' => env('INSPECTOR_INGESTION_KEY'),
+    ],
+
 ];

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\StripeProductController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\ContactController;
@@ -9,6 +10,10 @@ use App\Http\Controllers\ContactController;
 Route::get('/', function () {
     return Inertia::render('frontend/Landing');
 })->name('home');
+
+// Chat API Routes - Excluded from CSRF in VerifyCsrfToken middleware
+Route::post('/api/chat', [ChatController::class, 'sendMessage'])->name('chat.send');
+Route::post('/api/chat/stream', [ChatController::class, 'streamMessage'])->name('chat.stream');
 
 // Stripe Products API
 Route::get('/api/stripe/products', [StripeProductController::class, 'getProducts'])->name('stripe.products');

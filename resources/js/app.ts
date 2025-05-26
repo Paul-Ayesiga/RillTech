@@ -1,4 +1,5 @@
 import '../css/app.css';
+import 'highlight.js/styles/github-dark.css';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -7,6 +8,7 @@ import { createApp, h } from 'vue';
 import { ZiggyVue } from 'ziggy-js';
 import { initializeTheme } from './composables/useAppearance';
 import { configureEcho } from '@laravel/echo-vue';
+import axios from 'axios';
 
 configureEcho({
     broadcaster: 'reverb',

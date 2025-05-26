@@ -130,14 +130,50 @@ export function useChat(config: Partial<ChatConfig> = {}) {
   const simulateBotResponse = async (userMessage: string): Promise<ChatMessage> => {
     isTyping.value = true;
 
-    // Simulate typing delay
-    await new Promise(resolve => setTimeout(resolve, chatConfig.typingDelay));
+    try {
+      // Get response from AI API
+      const response = await sendToAPI(userMessage);
+      isTyping.value = false;
+      return addMessage(response, 'bot');
+    } catch (error) {
+      console.error('Error getting bot response:', error);
+      isTyping.value = false;
+      // Fallback to simple response
+      const fallbackResponse = "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.";
+      return addMessage(fallbackResponse, 'bot');
+    }
+  };
 
-    isTyping.value = false;
+  // Streaming bot response for real-time chat
+  const streamBotResponse = async (userMessage: string): Promise<ChatMessage> => {
+    isTyping.value = true;
 
-    // Generate response (replace with actual AI integration)
-    const response = generateBotResponse(userMessage);
-    return addMessage(response, 'bot');
+    // Create a placeholder message that we'll update
+    const botMessage = addMessage('', 'bot');
+    let accumulatedResponse = '';
+
+    try {
+      await sendToStreamingAPI(userMessage, (chunk: string) => {
+        accumulatedResponse += chunk;
+        // Update the message content in real-time
+        const messageIndex = currentMessages.value.findIndex(m => m.id === botMessage.id);
+        if (messageIndex !== -1) {
+          currentMessages.value[messageIndex].content = accumulatedResponse;
+        }
+      });
+
+      isTyping.value = false;
+      return botMessage;
+    } catch (error) {
+      console.error('Error streaming bot response:', error);
+      isTyping.value = false;
+      // Update with fallback response
+      const messageIndex = currentMessages.value.findIndex(m => m.id === botMessage.id);
+      if (messageIndex !== -1) {
+        currentMessages.value[messageIndex].content = "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.";
+      }
+      return botMessage;
+    }
   };
 
   // Chat actions
@@ -208,29 +244,112 @@ export function useChat(config: Partial<ChatConfig> = {}) {
     return responses[Math.floor(Math.random() * responses.length)];
   };
 
-  // API integration (placeholder)
+  // API integration with RillTech AI Agent
   const sendToAPI = async (message: string): Promise<string> => {
-    if (!chatConfig.apiEndpoint) {
-      return generateBotResponse(message);
-    }
-
     try {
-      const response = await fetch(chatConfig.apiEndpoint, {
-        method: 'POST',
+      const axios = (await import('axios')).default;
+
+      const response = await axios.post('/api/chat', {
+        message,
+        session_id: currentSession.value?.id,
+        context: {
+          page: window.location.pathname,
+          timestamp: new Date().toISOString(),
+        }
+      }, {
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message,
-          session_id: currentSession.value?.id
-        })
+          'X-Requested-With': 'XMLHttpRequest',
+        }
       });
 
-      const data = await response.json();
-      return data.response || 'Sorry, I couldn\'t process that request.';
+      const data = response.data;
+
+      if (data.success) {
+        return data.response || 'Sorry, I couldn\'t process that request.';
+      } else {
+        throw new Error(data.message || 'API request failed');
+      }
     } catch (error) {
       console.error('Chat API error:', error);
       return 'Sorry, I\'m having trouble connecting right now. Please try again later.';
+    }
+  };
+
+  // Streaming API integration
+  const sendToStreamingAPI = async (message: string, onChunk: (chunk: string) => void): Promise<void> => {
+    try {
+      // Get XSRF token from cookie (same way Axios does it)
+      const getXSRFToken = () => {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'XSRF-TOKEN') {
+            return decodeURIComponent(value);
+          }
+        }
+        return null;
+      };
+
+      const xsrfToken = getXSRFToken();
+
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': xsrfToken || '',
+        },
+        body: JSON.stringify({
+          message,
+          session_id: currentSession.value?.id,
+          context: {
+            page: window.location.pathname,
+            timestamp: new Date().toISOString(),
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body reader available');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.chunk) {
+                onChunk(data.chunk);
+              } else if (data.complete) {
+                return;
+              } else if (data.error) {
+                throw new Error(data.error);
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse streaming data:', parseError);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Streaming API error:', error);
+      onChunk('Sorry, I\'m having trouble connecting right now. Please try again later.');
     }
   };
 
@@ -282,11 +401,16 @@ export function useChat(config: Partial<ChatConfig> = {}) {
     createSession,
     endSession,
 
+    // AI Integration
+    simulateBotResponse,
+    streamBotResponse,
+    sendToAPI,
+    sendToStreamingAPI,
+
     // Utilities
     formatTimestamp,
     exportChatHistory,
-    getMessageStats,
-    sendToAPI
+    getMessageStats
   };
 }
 
