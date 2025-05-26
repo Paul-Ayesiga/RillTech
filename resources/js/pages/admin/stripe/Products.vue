@@ -2,19 +2,18 @@
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'vue-sonner';
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import { DollarSign, Plus, Search, AlertCircle, Check, X } from 'lucide-vue-next';
+import { Plus, AlertCircle, Check, X } from 'lucide-vue-next';
+import DataTableStripeProducts from '@/components/admin/DataTableStripeProducts.vue';
 
 const props = defineProps({
   products: Array,
@@ -37,11 +36,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     href: '/admin/stripe/products',
   },
 ];
-
-// Search and filters
-const search = ref(props.filters?.search || '');
-const active = ref(props.filters?.active || 'all');
-const perPage = ref(props.filters?.per_page || 10);
 
 // Dialog state
 const isCreateProductDialogOpen = ref(false);
@@ -96,44 +90,7 @@ const submitCreateProduct = () => {
   });
 };
 
-// Apply filters
-const applyFilters = () => {
-  router.get(
-    route('admin.stripe.products'),
-    {
-      search: search.value,
-      active: active.value,
-      per_page: perPage.value,
-      page: 1, // Reset to first page when filters change
-    },
-    {
-      preserveState: true,
-      replace: true,
-    }
-  );
-};
-
-// Watch for filter changes
-watch([search, active, perPage], () => {
-  applyFilters();
-});
-
-// Format currency
-const formatCurrency = (amount, currency) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'USD',
-  }).format(amount);
-};
-
-// Format date
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
+// These functions are now handled by the DataTable component
 </script>
 
 <template>
@@ -311,119 +268,17 @@ const formatDate = (dateString) => {
         </div>
       </div>
 
-      <!-- Filters -->
-      <div class="mb-6 flex flex-col gap-4 sm:flex-row">
-        <div class="flex-1">
-          <div class="relative">
-            <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              v-model="search"
-              placeholder="Search products..."
-              class="pl-8"
-            />
-          </div>
-        </div>
-        <Select v-model="active" class="w-full sm:w-[150px]">
-          <SelectTrigger>
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Active</SelectItem>
-            <SelectItem value="false">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select v-model="perPage" class="w-full sm:w-[100px]">
-          <SelectTrigger>
-            <SelectValue placeholder="Per page" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem :value="5">5</SelectItem>
-            <SelectItem :value="10">10</SelectItem>
-            <SelectItem :value="25">25</SelectItem>
-            <SelectItem :value="50">50</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <!-- Products table -->
+      <!-- Products DataTable -->
       <Card>
-        <CardContent class="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead class="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow v-for="product in products" :key="product.id">
-                <TableCell>
-                  <div>
-                    <p class="font-medium">{{ product.name }}</p>
-                    <p class="text-sm text-muted-foreground">{{ product.description }}</p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div v-if="product.default_price">
-                    <p class="font-medium">{{ formatCurrency(product.default_price.amount, product.default_price.currency) }}</p>
-                    <p v-if="product.default_price.interval" class="text-sm text-muted-foreground">
-                      per {{ product.default_price.interval }}
-                    </p>
-                  </div>
-                  <p v-else class="text-sm text-muted-foreground">No price</p>
-                </TableCell>
-                <TableCell>
-                  <span :class="[
-                    'rounded-full px-2 py-1 text-xs font-medium',
-                    product.active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                  ]">
-                    {{ product.active ? 'Active' : 'Inactive' }}
-                  </span>
-                </TableCell>
-                <TableCell>{{ formatDate(product.created) }}</TableCell>
-                <TableCell class="text-right">
-                  <Button as-child variant="ghost" size="sm">
-                    <Link :href="route('admin.stripe.products.show', product.id)">
-                      View
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-              <TableRow v-if="products && products.length === 0">
-                <TableCell colspan="5" class="h-24 text-center">
-                  No products found.
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+        <CardHeader>
+          <CardTitle>Stripe Products</CardTitle>
+          <CardDescription>
+            Manage and view all Stripe products with advanced filtering and sorting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="px-3">
+          <DataTableStripeProducts :products="products || []" />
         </CardContent>
-        <CardFooter class="flex items-center justify-between border-t p-4">
-          <div class="text-sm text-muted-foreground">
-            Showing {{ products ? products.length : 0 }} results
-          </div>
-          <div class="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              :disabled="!pagination || pagination.current_page <= 1"
-              @click="router.get(route('admin.stripe.products'), { page: pagination.current_page - 1, last_id: null, ...filters }, { preserveState: true })"
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              :disabled="!pagination || !pagination.has_more"
-              @click="router.get(route('admin.stripe.products'), { page: pagination.current_page + 1, last_id: pagination.last_id, ...filters }, { preserveState: true })"
-            >
-              Next
-            </Button>
-          </div>
-        </CardFooter>
       </Card>
     </div>
   </AdminLayout>

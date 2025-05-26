@@ -15,7 +15,7 @@ import {
   getSortedRowModel,
   useVueTable,
 } from '@tanstack/vue-table'
-import { ArrowUpDown, ChevronDown, User, CreditCard, Eye, Calendar, Clock } from 'lucide-vue-next'
+import { ArrowUpDown, ChevronDown, Package, DollarSign, Eye, Calendar, CheckCircle, XCircle } from 'lucide-vue-next'
 import { h, ref } from 'vue'
 import { valueUpdater } from '@/utils'
 import { Link } from '@inertiajs/vue3'
@@ -37,31 +37,40 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-// Define the subscription type
-interface StripeSubscription {
-  id: number;
-  stripe_id: string;
-  status: string;
-  current_period_end: string;
-  created_at: string;
-  user: {
-    id: number;
-    name: string;
-    email: string;
+// Define the product type
+interface StripeProduct {
+  id: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  created: string;
+  default_price?: {
+    id: string;
+    amount: number;
+    currency: string;
+    interval?: string;
+    interval_count?: number;
   };
-  stripe_price?: string;
-  quantity?: number;
-  trial_ends_at?: string;
-  ends_at?: string;
+  metadata?: {
+    features?: string;
+    is_popular?: boolean;
+  };
 }
 
 const props = defineProps<{
-  subscriptions: StripeSubscription[]
+  products: StripeProduct[]
 }>()
 
+// Format currency helper
+const formatCurrency = (amount: number, currency: string): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'USD',
+  }).format(amount / 100); // Stripe amounts are in cents
+};
+
 // Format date helper
-const formatDate = (dateString: string | null): string => {
-  if (!dateString) return 'N/A';
+const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -69,59 +78,61 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-// Get status color helper
-const getStatusColor = (status: string): string => {
-  switch (status) {
-    case 'active':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'trialing':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    case 'past_due':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-    case 'canceled':
-    case 'cancelled':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    case 'incomplete':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-  }
-};
-
 // Define columns
-const columns: ColumnDef<StripeSubscription>[] = [
+const columns: ColumnDef<StripeProduct>[] = [
   {
-    accessorKey: 'stripe_id',
-    header: 'Subscription ID',
-    cell: ({ row }) => h('div', { class: 'font-mono text-xs' }, row.getValue('stripe_id')),
-  },
-  {
-    id: 'customer',
+    accessorKey: 'name',
     header: ({ column }) => {
       return h(Button, {
         variant: 'ghost',
         onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-      }, () => ['Customer', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
+      }, () => ['Product', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
     },
     cell: ({ row }) => {
-      const subscription = row.original
+      const product = row.original
 
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h(User, { class: 'h-4 w-4 text-muted-foreground' }),
+      return h('div', { class: 'flex items-start gap-2' }, [
+        h(Package, { class: 'h-4 w-4 text-muted-foreground mt-0.5' }),
         h('div', {}, [
-          h('p', { class: 'font-medium' }, subscription.user.name),
-          h('p', { class: 'text-sm text-muted-foreground' }, subscription.user.email)
+          h('p', { class: 'font-medium' }, product.name),
+          product.description ? h('p', { class: 'text-sm text-muted-foreground' }, product.description) : null
         ])
       ])
     },
+  },
+  {
+    id: 'price',
+    header: ({ column }) => {
+      return h(Button, {
+        variant: 'ghost',
+        onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
+      }, () => ['Price', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
+    },
+    cell: ({ row }) => {
+      const product = row.original
+
+      if (product.default_price) {
+        return h('div', { class: 'flex items-center gap-2' }, [
+          h(DollarSign, { class: 'h-4 w-4 text-muted-foreground' }),
+          h('div', {}, [
+            h('p', { class: 'font-medium' }, formatCurrency(product.default_price.amount, product.default_price.currency)),
+            product.default_price.interval ? h('p', { class: 'text-sm text-muted-foreground' },
+              `per ${product.default_price.interval}${product.default_price.interval_count && product.default_price.interval_count > 1 ? ` (${product.default_price.interval_count}x)` : ''}`
+            ) : null
+          ])
+        ])
+      }
+
+      return h('span', { class: 'text-sm text-muted-foreground' }, 'No price')
+    },
     sortingFn: (rowA, rowB) => {
-      const nameA = rowA.original.user.name.toLowerCase()
-      const nameB = rowB.original.user.name.toLowerCase()
-      return nameA.localeCompare(nameB)
+      const priceA = rowA.original.default_price?.amount || 0
+      const priceB = rowB.original.default_price?.amount || 0
+      return priceA - priceB
     },
   },
   {
-    accessorKey: 'status',
+    accessorKey: 'active',
     header: ({ column }) => {
       return h(Button, {
         variant: 'ghost',
@@ -129,23 +140,30 @@ const columns: ColumnDef<StripeSubscription>[] = [
       }, () => ['Status', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
     },
     cell: ({ row }) => {
-      const status = row.getValue('status') as string
+      const isActive = row.getValue('active') as boolean
 
-      return h('span', {
-        class: `rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(status)}`
-      }, status)
+      return h('div', { class: 'flex items-center gap-2' }, [
+        isActive ? h(CheckCircle, { class: 'h-4 w-4 text-green-600' }) : h(XCircle, { class: 'h-4 w-4 text-red-600' }),
+        h('span', {
+          class: `rounded-full px-2 py-1 text-xs font-medium ${
+            isActive
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+          }`
+        }, isActive ? 'Active' : 'Inactive')
+      ])
     },
   },
   {
-    accessorKey: 'current_period_end',
+    accessorKey: 'created',
     header: ({ column }) => {
       return h(Button, {
         variant: 'ghost',
         onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-      }, () => ['Period End', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
+      }, () => ['Created', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
     },
     cell: ({ row }) => {
-      const date = row.getValue('current_period_end') as string
+      const date = row.getValue('created') as string
 
       return h('div', { class: 'flex items-center gap-2' }, [
         h(Calendar, { class: 'h-4 w-4 text-muted-foreground' }),
@@ -154,27 +172,10 @@ const columns: ColumnDef<StripeSubscription>[] = [
     },
   },
   {
-    accessorKey: 'created_at',
-    header: ({ column }) => {
-      return h(Button, {
-        variant: 'ghost',
-        onClick: () => column.toggleSorting(column.getIsSorted() === 'asc'),
-      }, () => ['Created', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })])
-    },
-    cell: ({ row }) => {
-      const date = row.getValue('created_at') as string
-
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h(Clock, { class: 'h-4 w-4 text-muted-foreground' }),
-        h('span', {}, formatDate(date))
-      ])
-    },
-  },
-  {
     id: 'actions',
     header: () => h('div', { class: 'text-right' }, 'Actions'),
     cell: ({ row }) => {
-      const subscription = row.original
+      const product = row.original
 
       return h('div', { class: 'flex justify-end' }, [
         h(Button, {
@@ -183,7 +184,7 @@ const columns: ColumnDef<StripeSubscription>[] = [
           asChild: true,
         }, {
           default: () => h(Link, {
-            href: route('admin.stripe.subscriptions.show', subscription.id),
+            href: route('admin.stripe.products.show', product.id),
             class: 'flex items-center gap-1'
           }, {
             default: () => [
@@ -206,7 +207,7 @@ const rowSelection = ref({})
 const expanded = ref<ExpandedState>({})
 
 const table = useVueTable({
-  get data() { return props.subscriptions },
+  get data() { return props.products },
   columns,
   getCoreRowModel: getCoreRowModel(),
   getPaginationRowModel: getPaginationRowModel(),
@@ -238,9 +239,9 @@ const table = useVueTable({
     <div class="flex items-center py-4">
       <Input
         class="max-w-sm"
-        placeholder="Filter subscriptions..."
-        :model-value="table.getColumn('stripe_id')?.getFilterValue() as string"
-        @update:model-value="table.getColumn('stripe_id')?.setFilterValue($event)"
+        placeholder="Filter products..."
+        :model-value="table.getColumn('name')?.getFilterValue() as string"
+        @update:model-value="table.getColumn('name')?.setFilterValue($event)"
       />
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
@@ -287,7 +288,7 @@ const table = useVueTable({
           <template v-else>
             <TableRow>
               <TableCell :colspan="columns.length" class="h-24 text-center">
-                No subscriptions found.
+                No products found.
               </TableCell>
             </TableRow>
           </template>

@@ -11,6 +11,7 @@ import {
   getCoreRowModel,
   getExpandedRowModel,
   getFilteredRowModel,
+  getGlobalFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useVueTable,
@@ -80,7 +81,7 @@ const columns: ColumnDef<StripeCustomer>[] = [
     },
     cell: ({ row }) => {
       const customer = row.original
-      
+
       return h('div', { class: 'flex items-center gap-2' }, [
         h(User, { class: 'h-4 w-4 text-muted-foreground' }),
         h('div', {}, [
@@ -100,14 +101,14 @@ const columns: ColumnDef<StripeCustomer>[] = [
     header: 'Payment Method',
     cell: ({ row }) => {
       const customer = row.original
-      
+
       if (customer.pm_type && customer.pm_last_four) {
         return h('div', { class: 'flex items-center gap-2' }, [
           h(CreditCard, { class: 'h-4 w-4 text-muted-foreground' }),
           h('span', {}, `${customer.pm_type} •••• ${customer.pm_last_four}`)
         ])
       }
-      
+
       return h('span', { class: 'text-sm text-muted-foreground' }, 'No payment method')
     },
   },
@@ -126,13 +127,13 @@ const columns: ColumnDef<StripeCustomer>[] = [
     header: () => h('div', { class: 'text-right' }, 'Actions'),
     cell: ({ row }) => {
       const customer = row.original
-      
+
       return h('div', { class: 'flex justify-end' }, [
         h(Button, {
           variant: 'ghost',
           size: 'sm',
           asChild: true,
-        }, () => h(Link, { 
+        }, () => h(Link, {
           href: route('admin.stripe.customers.show', customer.id),
           class: 'flex items-center gap-1'
         }, [
@@ -151,6 +152,7 @@ const columnFilters = ref<ColumnFiltersState>([])
 const columnVisibility = ref<VisibilityState>({})
 const rowSelection = ref({})
 const expanded = ref<ExpandedState>({})
+const globalFilter = ref('')
 
 const table = useVueTable({
   get data() { return props.customers },
