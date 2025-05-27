@@ -96,18 +96,15 @@ class ChatIntegrationTest extends TestCase
      */
     public function test_ai_tools_instantiation(): void
     {
-        // Test that all AI tool classes can be instantiated
+        // Test that remaining AI tool classes can be instantiated
         $tools = [
-            \App\AI\Tools\GetPricingInfo::class,
-            \App\AI\Tools\GetFeatureInfo::class,
             \App\AI\Tools\ScheduleDemo::class,
-            \App\AI\Tools\GetCompanyInfo::class,
         ];
 
         foreach ($tools as $toolClass) {
             $tool = new $toolClass();
             $this->assertInstanceOf($toolClass, $tool);
-            
+
             // Test that the tool can be invoked
             $result = $tool();
             $this->assertIsString($result);
@@ -128,7 +125,7 @@ class ChatIntegrationTest extends TestCase
         } catch (\Exception $e) {
             // If it fails due to missing OpenAI key, that's acceptable for testing
             $this->assertTrue(
-                str_contains($e->getMessage(), 'API') || 
+                str_contains($e->getMessage(), 'API') ||
                 str_contains($e->getMessage(), 'key') ||
                 str_contains($e->getMessage(), 'config'),
                 'Agent instantiation should fail gracefully with configuration issues'

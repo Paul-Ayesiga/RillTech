@@ -47,7 +47,7 @@ return [
 
     'voyage' => [
         'api_key' => env('VOYAGE_API_KEY'),
-        'model' => env('VOYAGE_MODEL', 'voyage-large-2'),
+        'model' => env('VOYAGE_MODEL', 'voyage-3-large'),
     ],
 
     'pinecone' => [

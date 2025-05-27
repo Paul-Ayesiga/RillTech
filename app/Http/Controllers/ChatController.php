@@ -7,7 +7,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\AI\RillTechAgent;
-use App\AI\RillTechRAGAgent;
 use NeuronAI\Chat\Messages\UserMessage;
 
 class ChatController extends Controller
@@ -74,9 +73,9 @@ class ChatController extends Controller
             //     }
             // }
 
-            // Send message to AI agent - Neuron AI handles memory automatically
-            Log::info('Sending message to AI agent', ['message' => $userMessage]);
-            $response = $agent->chat(new UserMessage($userMessage));
+            // Send message to RAG agent - Use answer() method for RAG functionality
+            Log::info('Sending message to RAG agent', ['message' => $userMessage]);
+            $response = $agent->answer(new UserMessage($userMessage));
             $botResponse = $response->getContent();
             Log::info('AI response received', ['response_length' => strlen($botResponse)]);
 
@@ -111,7 +110,13 @@ class ChatController extends Controller
             $errorMessage = 'I apologize, but I\'m having trouble processing your request right now. Please try again in a moment.';
             $errorCode = 'CHAT_ERROR';
 
-            if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'quota') || str_contains($e->getMessage(), 'rate limit')) {
+            if (str_contains($e->getMessage(), 'RATE_LIMITED') || str_contains($e->getMessage(), 'system is currently busy')) {
+                $errorMessage = '🤖 **System Busy** - I\'m currently processing many requests. Please try again in a moment!';
+                $errorCode = 'RATE_LIMITED';
+            } elseif (str_contains($e->getMessage(), 'QUOTA_EXCEEDED')) {
+                $errorMessage = '🤖 **System Maintenance** - Our AI service is temporarily unavailable. Please try again later!';
+                $errorCode = 'QUOTA_EXCEEDED';
+            } elseif (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'quota') || str_contains($e->getMessage(), 'rate limit')) {
                 $errorMessage = 'I\'m currently experiencing high demand. Our AI service is temporarily unavailable, but I can still help you with basic information about RillTech!';
                 $errorCode = 'RATE_LIMITED';
 
@@ -337,7 +342,7 @@ class ChatController extends Controller
                     set_time_limit(45); // 45 seconds max for the entire operation
                     $startTime = time();
 
-                    $response = $agent->chat(new UserMessage($userMessage));
+                    $response = $agent->answer(new UserMessage($userMessage));
                     $content = $response->getContent();
 
                     // Check if the operation took too long
@@ -381,7 +386,23 @@ class ChatController extends Controller
 
                     // Try to provide fallback response for streaming
                     $fallbackReason = 'unknown_error';
-                    if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'quota') || str_contains($e->getMessage(), 'rate limit')) {
+                    if (str_contains($e->getMessage(), 'RATE_LIMITED') || str_contains($e->getMessage(), 'system is currently busy')) {
+                        $fallbackReason = 'rate_limited';
+                        $fallbackResponse = "🤖 **System Busy** - I'm currently processing many requests. Please try again in a moment!\n\n" .
+                                          "While you wait, you can explore the information on this page:\n\n" .
+                                          "📋 **Features Section** - Platform capabilities\n" .
+                                          "💰 **Pricing Section** - Current plans\n" .
+                                          "📞 **Contact Section** - Get in touch with our team\n\n" .
+                                          "I'll be ready to help again shortly! ⏰";
+                    } elseif (str_contains($e->getMessage(), 'QUOTA_EXCEEDED')) {
+                        $fallbackReason = 'quota_exceeded';
+                        $fallbackResponse = "🤖 **System Maintenance** - Our AI service is temporarily unavailable. Please try again later!\n\n" .
+                                          "In the meantime, you can find information on this page:\n\n" .
+                                          "📋 **Features Section** - Platform capabilities\n" .
+                                          "💰 **Pricing Section** - Current plans\n" .
+                                          "📞 **Contact Section** - Get in touch with our team\n\n" .
+                                          "Thank you for your patience! 🙏";
+                    } elseif (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'quota') || str_contains($e->getMessage(), 'rate limit')) {
                         $fallbackReason = 'rate_limited';
                         $fallbackResponse = $this->getFallbackResponse($userMessage, $context ?? []);
                         if ($fallbackResponse) {
@@ -501,7 +522,7 @@ class ChatController extends Controller
     }
 
     /**
-     * Create the appropriate AI agent based on available services
+     * Create the RillTech AI agent with RAG capabilities
      */
     private function createAgent(string $sessionId)
     {
@@ -510,33 +531,24 @@ class ChatController extends Controller
         $hasPinecone = !empty(config('services.pinecone.api_key'));
         $hasMistral = !empty(config('services.mistral.api_key'));
 
-        if ($hasVoyage && $hasPinecone && $hasMistral) {
-            Log::info('Creating RAG-enabled agent with full capabilities', [
-                'session_id' => $sessionId,
-                'voyage' => $hasVoyage,
-                'pinecone' => $hasPinecone,
-                'mistral' => $hasMistral
-            ]);
-
-            try {
-                return RillTechRAGAgent::makeWithSession($sessionId);
-            } catch (\Exception $e) {
-                Log::warning('Failed to create RAG agent, falling back to standard agent', [
-                    'error' => $e->getMessage(),
-                    'session_id' => $sessionId
-                ]);
-                return RillTechAgent::makeWithSession($sessionId);
-            }
-        }
-
-        Log::info('Creating standard agent (RAG services not fully configured)', [
+        Log::info('Creating RillTech AI Agent with RAG capabilities', [
             'session_id' => $sessionId,
             'voyage' => $hasVoyage,
             'pinecone' => $hasPinecone,
-            'mistral' => $hasMistral
+            'mistral' => $hasMistral,
+            'rag_enabled' => $hasVoyage && $hasPinecone && $hasMistral
         ]);
 
-        return RillTechAgent::makeWithSession($sessionId);
+        try {
+            return RillTechAgent::makeWithSession($sessionId);
+        } catch (\Exception $e) {
+            Log::error('Failed to create RillTech agent', [
+                'error' => $e->getMessage(),
+                'session_id' => $sessionId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**

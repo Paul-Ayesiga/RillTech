@@ -13,5 +13,7 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         '/stripe/webhook', // Stripe webhooks don't include CSRF tokens
+        '/api/chat', // Chat API endpoints for widget
+        '/api/chat/stream', // Chat streaming API endpoints
     ];
 }

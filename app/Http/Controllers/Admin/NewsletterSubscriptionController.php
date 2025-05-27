@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
+use Carbon\Carbon;
 
 class NewsletterSubscriptionController extends Controller
 {
@@ -24,12 +25,14 @@ class NewsletterSubscriptionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
+            $today = Carbon::now();
+
             // Get statistics
             $stats = [
                 'total' => NewsletterSubscription::count(),
                 'active' => NewsletterSubscription::active()->count(),
                 'unsubscribed' => NewsletterSubscription::unsubscribed()->count(),
-                'today' => NewsletterSubscription::whereDate('created_at', today())->count(),
+                'today' => NewsletterSubscription::whereDate('created_at', $today->toDateString())->count(),
                 'this_week' => NewsletterSubscription::whereBetween('created_at', [
                     now()->startOfWeek(),
                     now()->endOfWeek()
