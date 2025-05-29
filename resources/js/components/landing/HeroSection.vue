@@ -3,8 +3,25 @@ import { onMounted, ref } from 'vue';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Link, usePage } from '@inertiajs/vue3';
+import DemoScheduleModal from '@/Components/modals/DemoScheduleModal.vue';
 
 const page = usePage();
+
+// Demo modal state
+const isDemoModalOpen = ref(false);
+
+const openDemoModal = () => {
+  isDemoModalOpen.value = true;
+};
+
+const closeDemoModal = () => {
+  isDemoModalOpen.value = false;
+};
+
+const handleDemoSuccess = (demoRequest: any) => {
+  console.log('Demo scheduled successfully:', demoRequest);
+  // Could add additional success handling here
+};
 
 // Register ScrollTrigger plugin
 gsap.registerPlugin(ScrollTrigger);
@@ -361,10 +378,10 @@ const setupFloatingAnimations = () => {
               Get Started
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </Link>
-            <a href="#" class="cta-button relative z-10 inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-8 py-3 text-lg font-medium text-foreground backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-accent hover:text-accent-foreground" onclick="console.log('Schedule Demo clicked')">
+            <button @click="openDemoModal" class="cta-button relative z-10 inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-8 py-3 text-lg font-medium text-foreground backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-accent hover:text-accent-foreground">
               Schedule a Demo
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-            </a>
+            </button>
           </div>
 
           <!-- Credit card required callout -->
@@ -470,6 +487,12 @@ const setupFloatingAnimations = () => {
         </div>
       </div>
     </div>
+
+    <!-- Demo Schedule Modal -->
+    <DemoScheduleModal
+      v-model:open="isDemoModalOpen"
+      @success="handleDemoSuccess"
+    />
   </section>
 </template>
 

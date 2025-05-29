@@ -84,12 +84,13 @@ class RillTechAgent extends RAG
                 "FOR RILLTECH QUESTIONS: Use RAG to search the knowledge base for relevant, accurate information. If no relevant information is found in the knowledge base, clearly state that you don't have that specific information rather than guessing or creating details.",
                 "FOR GENERAL CONVERSATION: Respond naturally using your general knowledge for greetings, small talk, general AI questions, or non-RillTech topics.",
                 "Consider the page context - if the user is on the landing page, you can reference specific sections they can scroll to.",
-                "For demo requests, booking meetings, or contact inquiries: use the schedule_demo tool",
+                "For demo requests, booking meetings, or contact inquiries: use the schedule_demo tool. If you have all required information (name, email, demo_type, preferred_datetime, timezone), call the tool to actually schedule the demo. If information is missing, call the tool without parameters to show options and guide the user.",
                 "When providing RillTech information, ONLY use facts from the retrieved knowledge base context.",
                 "When providing information, you can guide users to relevant sections on the current page for more details.",
                 "Provide clear, helpful, and accurate responses. For RillTech topics, base responses strictly on retrieved information.",
                 "Always aim to be helpful and guide users toward solutions that meet their needs.",
-                "If appropriate, suggest next steps like scheduling a demo, exploring pricing plans, or learning about specific features."
+                "If appropriate, suggest next steps like scheduling a demo, exploring pricing plans, or learning about specific features.",
+                "You have tools to use especially for demo scheduling so endeavour to use them."
             ],
             output: [
                 "Respond in a conversational, friendly tone that matches the user's communication style.",
@@ -112,12 +113,68 @@ class RillTechAgent extends RAG
         return [
             Tool::make(
                 'schedule_demo',
-                'Use this tool when users want to schedule a demo, book a meeting, see the platform in action, or get in touch with the RillTech team. This is the primary tool for demo requests and contact inquiries.'
+                'Use this tool when users want to schedule a demo, book a meeting, see the platform in action, or get in touch with the RillTech team. This tool can actually schedule demos when provided with complete information (name, email, demo type, preferred datetime, timezone). If information is missing, it will guide the user on what is needed.'
+            )->addProperty(
+                new ToolProperty(
+                    name: 'name',
+                    type: 'string',
+                    description: 'Full name of the person requesting the demo',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'email',
+                    type: 'string',
+                    description: 'Email address for demo confirmation',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'company',
+                    type: 'string',
+                    description: 'Company name (optional)',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'phone',
+                    type: 'string',
+                    description: 'Phone number (optional)',
+                    required: false
+                )
             )->addProperty(
                 new ToolProperty(
                     name: 'demo_type',
                     type: 'string',
-                    description: 'Type of demo requested (general, enterprise, specific-feature) or "contact" for general contact',
+                    description: 'Type of demo requested: general, enterprise, specific-feature, or custom',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'preferred_datetime',
+                    type: 'string',
+                    description: 'Preferred date and time for the demo in format "YYYY-MM-DD HH:MM" (e.g., "2025-05-30 14:00")',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'timezone',
+                    type: 'string',
+                    description: 'User timezone (e.g., "America/Africa", "Europe/London", "UTC")',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'message',
+                    type: 'string',
+                    description: 'Additional message or specific requirements for the demo',
+                    required: false
+                )
+            )->addProperty(
+                new ToolProperty(
+                    name: 'session_id',
+                    type: 'string',
+                    description: 'Chat session ID for tracking (automatically provided)',
                     required: false
                 )
             )->setCallable(new ScheduleDemo()),

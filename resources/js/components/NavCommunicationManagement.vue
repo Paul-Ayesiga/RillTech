@@ -2,7 +2,7 @@
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Mail, MessageSquare, Users, Send } from 'lucide-vue-next';
+import { Mail, MessageSquare, Users, Send, Calendar } from 'lucide-vue-next';
 
 const communicationManagementItems: NavItem[] = [
     {
@@ -14,6 +14,11 @@ const communicationManagementItems: NavItem[] = [
         title: 'Contact Submissions',
         href: '/admin/contact-submissions',
         icon: MessageSquare,
+    },
+    {
+        title: 'Demo Requests',
+        href: '/admin/demo-requests',
+        icon: Calendar,
     },
 ];
 

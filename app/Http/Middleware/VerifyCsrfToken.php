@@ -15,5 +15,8 @@ class VerifyCsrfToken extends Middleware
         '/stripe/webhook', // Stripe webhooks don't include CSRF tokens
         '/api/chat', // Chat API endpoints for widget
         '/api/chat/stream', // Chat streaming API endpoints
+        '/api/demo-requests', // Demo request API endpoints
+        '/api/demo-requests/chatbot', // Chatbot demo requests
+        '/api/demo-requests/available-slots', // Available time slots
     ];
 }

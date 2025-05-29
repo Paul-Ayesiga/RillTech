@@ -27,7 +27,8 @@ import {
   LogOut,
   User,
   Key,
-  Activity
+  Activity,
+  Calendar
 } from 'lucide-vue-next'
 
 interface CommandItem {
@@ -105,6 +106,16 @@ const commands = computed<CommandItem[]>(() => [
     keywords: ['stripe', 'payments', 'billing', 'subscriptions'],
     group: 'Navigation',
     shortcut: '⌘S'
+  },
+  {
+    id: 'nav-demo-requests',
+    title: 'Demo Requests',
+    description: 'Manage demo requests',
+    icon: Calendar,
+    action: () => router.visit('/admin/demo-requests'),
+    keywords: ['demo', 'requests', 'scheduling', 'appointments'],
+    group: 'Navigation',
+    shortcut: '⌘M'
   },
 
   // Quick Actions

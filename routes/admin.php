@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\NewsletterSubscriptionController;
 use App\Http\Controllers\Admin\ContactSubmissionController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DemoRequestController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -114,4 +115,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'user.status', 'role:adm
     // Contact bulk operations
     Route::post('contact-submissions/bulk-delete', [ContactSubmissionController::class, 'bulkDelete'])->name('admin.contact-submissions.bulk-delete');
     Route::get('contact-submissions/export-csv', [ContactSubmissionController::class, 'exportCsv'])->name('admin.contact-submissions.export-csv');
+
+    // Demo Request Management
+    Route::get('demo-requests', [DemoRequestController::class, 'index'])->name('admin.demo-requests.index');
+    Route::get('demo-requests/{demoRequest}', [DemoRequestController::class, 'show'])->name('admin.demo-requests.show');
+    Route::put('demo-requests/{demoRequest}/status', [DemoRequestController::class, 'updateStatus'])->name('admin.demo-requests.update-status');
+    Route::post('demo-requests/bulk-update', [DemoRequestController::class, 'bulkUpdate'])->name('admin.demo-requests.bulk-update');
 });

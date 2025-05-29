@@ -73,11 +73,29 @@ class ChatController extends Controller
             //     }
             // }
 
-            // Send message to RAG agent - Use answer() method for RAG functionality
+            // Send message to RAG agent - Try chat() method for tool execution
             Log::info('Sending message to RAG agent', ['message' => $userMessage]);
-            $response = $agent->answer(new UserMessage($userMessage));
-            $botResponse = $response->getContent();
-            Log::info('AI response received', ['response_length' => strlen($botResponse)]);
+
+            // Try chat() method first for tool execution, fallback to answer() for RAG
+            try {
+                if (method_exists($agent, 'chat')) {
+                    $response = $agent->chat(new UserMessage($userMessage));
+                } else {
+                    $response = $agent->answer(new UserMessage($userMessage));
+                }
+                $botResponse = $response->getContent();
+
+                // Check if response contains tool call JSON and handle it
+                if (str_contains($botResponse, '{"name":') && str_contains($botResponse, '"arguments":')) {
+                    Log::info('Tool call detected in response, attempting to execute');
+                    $botResponse = $this->handleToolCall($botResponse, $sessionId);
+                }
+
+                Log::info('AI response received', ['response_length' => strlen($botResponse)]);
+            } catch (\Exception $e) {
+                Log::error('Error in agent communication', ['error' => $e->getMessage()]);
+                throw $e;
+            }
 
             // Log the successful response
             Log::info('Chat response generated', [
@@ -342,8 +360,19 @@ class ChatController extends Controller
                     set_time_limit(45); // 45 seconds max for the entire operation
                     $startTime = time();
 
-                    $response = $agent->answer(new UserMessage($userMessage));
+                    // Try chat() method first for tool execution, fallback to answer() for RAG
+                    if (method_exists($agent, 'chat')) {
+                        $response = $agent->chat(new UserMessage($userMessage));
+                    } else {
+                        $response = $agent->answer(new UserMessage($userMessage));
+                    }
                     $content = $response->getContent();
+
+                    // Check if response contains tool call JSON and handle it
+                    if (str_contains($content, '{"name":') && str_contains($content, '"arguments":')) {
+                        Log::info('Tool call detected in streaming response, attempting to execute');
+                        $content = $this->handleToolCall($content, $sessionId);
+                    }
 
                     // Check if the operation took too long
                     $duration = time() - $startTime;
@@ -548,6 +577,159 @@ class ChatController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Handle tool call execution when detected in AI response
+     */
+    private function handleToolCall(string $response, string $sessionId): string
+    {
+        try {
+            // Try multiple approaches to extract tool call JSON
+            $toolCall = null;
+            $toolCallJson = '';
+
+            // Approach 1: Look for array format [{"name": ...}]
+            if (preg_match('/\[\s*\{[^}]*"name"[^}]*"arguments"[^}]*\}[^}]*\]/', $response, $matches)) {
+                $toolCallJson = $matches[0];
+                $decoded = json_decode($toolCallJson, true);
+                if (is_array($decoded) && isset($decoded[0])) {
+                    $toolCall = $decoded[0];
+                }
+            }
+
+            // Approach 2: Look for single object format {"name": ...}
+            if (!$toolCall && preg_match('/\{[^}]*"name"[^}]*"arguments"[^}]*\}/', $response, $matches)) {
+                $toolCallJson = $matches[0];
+                $toolCall = json_decode($toolCallJson, true);
+            }
+
+            // Approach 3: Try to find the complete JSON structure more carefully
+            if (!$toolCall) {
+                // Find the start of a JSON object that contains "name" and "arguments"
+                $start = strpos($response, '{"name"');
+                if ($start === false) {
+                    $start = strpos($response, '[{"name"');
+                }
+
+                if ($start !== false) {
+                    $jsonPart = substr($response, $start);
+                    // Try to find the end by counting braces
+                    $braceCount = 0;
+                    $inString = false;
+                    $escaped = false;
+                    $end = 0;
+
+                    for ($i = 0; $i < strlen($jsonPart); $i++) {
+                        $char = $jsonPart[$i];
+
+                        if ($escaped) {
+                            $escaped = false;
+                            continue;
+                        }
+
+                        if ($char === '\\') {
+                            $escaped = true;
+                            continue;
+                        }
+
+                        if ($char === '"') {
+                            $inString = !$inString;
+                            continue;
+                        }
+
+                        if (!$inString) {
+                            if ($char === '{' || $char === '[') {
+                                $braceCount++;
+                            } elseif ($char === '}' || $char === ']') {
+                                $braceCount--;
+                                if ($braceCount === 0) {
+                                    $end = $i + 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($end > 0) {
+                        $toolCallJson = substr($jsonPart, 0, $end);
+                        $decoded = json_decode($toolCallJson, true);
+                        if (is_array($decoded) && isset($decoded[0])) {
+                            $toolCall = $decoded[0];
+                        } else {
+                            $toolCall = $decoded;
+                        }
+                    }
+                }
+            }
+
+            Log::info('Extracted tool call JSON', ['json' => $toolCallJson]);
+
+            if ($toolCall && json_last_error() === JSON_ERROR_NONE && isset($toolCall['name'], $toolCall['arguments'])) {
+                $toolName = $toolCall['name'];
+                $arguments = $toolCall['arguments'];
+
+                Log::info('Executing tool', ['tool' => $toolName, 'arguments' => $arguments]);
+
+                // Execute the tool based on name
+                if ($toolName === 'schedule_demo') {
+                    $tool = new \App\AI\Tools\ScheduleDemo();
+
+                    // Add session_id to arguments if not present or override with current session
+                    $arguments['session_id'] = $sessionId;
+
+                    // Normalize datetime format if needed
+                    if (isset($arguments['preferred_datetime'])) {
+                        $datetime = $arguments['preferred_datetime'];
+                        // Convert ISO format to simple format if needed
+                        if (str_contains($datetime, 'T')) {
+                            $datetime = str_replace('T', ' ', $datetime);
+                            $datetime = preg_replace('/:\d{2}$/', '', $datetime); // Remove seconds if present
+                            $arguments['preferred_datetime'] = $datetime;
+                        }
+                    }
+
+                    Log::info('Calling tool with normalized arguments', ['arguments' => $arguments]);
+
+                    // Call the tool with arguments
+                    $result = $tool(
+                        $arguments['name'] ?? null,
+                        $arguments['email'] ?? null,
+                        $arguments['company'] ?? null,
+                        $arguments['phone'] ?? null,
+                        $arguments['demo_type'] ?? null,
+                        $arguments['preferred_datetime'] ?? null,
+                        $arguments['timezone'] ?? null,
+                        $arguments['message'] ?? null,
+                        $arguments['session_id'] ?? null
+                    );
+
+                    Log::info('Tool execution completed', ['result_length' => strlen($result)]);
+                    return $result;
+                } else {
+                    Log::warning('Unknown tool name', ['tool' => $toolName]);
+                    return "I'm sorry, I don't recognize that tool. Please try again or contact our support team.";
+                }
+            } else {
+                Log::warning('Invalid tool call JSON structure');
+            }
+
+            // If tool call parsing fails, return original response
+            Log::warning('Failed to parse tool call, returning original response');
+            return $response;
+
+        } catch (\Exception $e) {
+            Log::error('Error executing tool call', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'response' => $response,
+                'session_id' => $sessionId
+            ]);
+
+            // Return a user-friendly error message
+            return "I'd be happy to help you schedule a demo! However, I encountered an issue processing your request. " .
+                   "Please try using the 'Schedule Demo' button on this page, or contact our team directly at hello@rilltech.com.";
         }
     }
 
