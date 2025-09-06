@@ -1,0 +1,40 @@
+<script setup lang="ts">
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/vue3';
+import { ShieldCheck, Palette } from 'lucide-vue-next';
+
+const adminSettingsItems: NavItem[] = [
+    {
+        title: 'Roles & Permissions',
+        href: '/admin/roles-permissions',
+        icon: ShieldCheck,
+    },
+    {
+        title: 'Permission Groups',
+        href: '/admin/permission-groups',
+        icon: Palette,
+    },
+];
+
+const page = usePage<SharedData>();
+</script>
+
+<template>
+    <SidebarGroup class="px-2 py-0">
+        <SidebarGroupLabel>Admin Settings</SidebarGroupLabel>
+        <SidebarMenu>
+            <SidebarMenuItem v-for="item in adminSettingsItems" :key="item.title">
+                <SidebarMenuButton
+                    as-child :is-active="page.url.startsWith(item.href)"
+                    :tooltip="item.title"
+                >
+                    <Link :href="item.href">
+                        <component :is="item.icon" />
+                        <span>{{ item.title }}</span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+        </SidebarMenu>
+    </SidebarGroup>
+</template>
