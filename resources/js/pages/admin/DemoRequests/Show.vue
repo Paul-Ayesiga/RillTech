@@ -1,162 +1,17 @@
 <template>
-  <AdminLayout>
-    <div class="space-y-6 px-3 sm:px-6 py-4 sm:py-6">
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="flex items-center gap-4">
-          <Button variant="ghost" @click="$inertia.visit(route('admin.demo-requests.index'))">
-            <ArrowLeft class="h-4 w-4 mr-2" />
-            Back to Demo Requests
-          </Button>
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Demo Request #{{ demoRequest.id }}</h1>
-            <p class="text-gray-600 dark:text-gray-400">{{ demoRequest.name }} - {{ demoRequest.demo_type_label }}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <Badge :variant="getStatusVariant(demoRequest.status)" class="text-sm py-1 px-3">
-            {{ demoRequest.status }}
-          </Badge>
-          <Button size="sm" class="sm:size-md" @click="editStatus">
-            <Edit class="h-4 w-4 mr-2" />
-            <span class="hidden sm:inline">Update Status</span>
-            <span class="sm:hidden">Update</span>
-          </Button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Main Content -->
-        <div class="lg:col-span-2 space-y-4 sm:space-y-6">
-          <!-- Contact Information -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4 sm:p-6">
-            <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Contact Information</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</Label>
-                <p class="text-gray-900 dark:text-white">{{ demoRequest.name }}</p>
-              </div>
-              <div>
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</Label>
-                <p class="text-gray-900 dark:text-white">{{ demoRequest.email }}</p>
-              </div>
-              <div v-if="demoRequest.company">
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Company</Label>
-                <p class="text-gray-900 dark:text-white">{{ demoRequest.company }}</p>
-              </div>
-              <div v-if="demoRequest.phone">
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</Label>
-                <p class="text-gray-900 dark:text-white">{{ demoRequest.phone }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Demo Details -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4 sm:p-6">
-            <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Demo Details</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Demo Type</Label>
-                <p class="text-gray-900 dark:text-white">{{ demoRequest.demo_type_label }}</p>
-              </div>
-              <div>
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Source</Label>
-                <Badge variant="outline">{{ demoRequest.source }}</Badge>
-              </div>
-              <div>
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Preferred Date & Time</Label>
-                <p class="text-gray-900 dark:text-white">{{ demoRequest.formatted_preferred_datetime }}</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ demoRequest.timezone }}</p>
-              </div>
-              <div v-if="demoRequest.confirmed_datetime">
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Confirmed Date & Time</Label>
-                <p class="text-gray-900 dark:text-white">{{ formatDateTime(demoRequest.confirmed_datetime) }}</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ demoRequest.timezone }}</p>
-              </div>
-            </div>
-
-            <div v-if="demoRequest.message" class="mt-4">
-              <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Message</Label>
-              <p class="text-gray-900 dark:text-white mt-1">{{ demoRequest.message }}</p>
-            </div>
-          </div>
-
-          <!-- Admin Notes -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4 sm:p-6">
-            <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Admin Notes</h2>
-            <div v-if="demoRequest.admin_notes">
-              <p class="text-gray-900 dark:text-white">{{ demoRequest.admin_notes }}</p>
-            </div>
-            <div v-else>
-              <p class="text-gray-500 dark:text-gray-400 italic">No admin notes yet.</p>
-            </div>
-          </div>
-
-          <!-- Metadata (if from chatbot) -->
-          <div v-if="demoRequest.metadata && Object.keys(demoRequest.metadata).length > 0" class="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4 sm:p-6">
-            <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Additional Information</h2>
-            <div class="space-y-2">
-              <div v-for="(value, key) in demoRequest.metadata" :key="key">
-                <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ formatMetadataKey(key) }}</Label>
-                <p class="text-gray-900 dark:text-white">{{ value }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sidebar -->
-        <div class="space-y-4 sm:space-y-6">
-          <!-- Quick Actions -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4 sm:p-6">
-            <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Actions</h3>
-            <div class="space-y-3">
-              <Button
-                v-if="demoRequest.status === 'pending'"
-                @click="quickUpdateStatus('confirmed')"
-                class="w-full"
-              >
-                <CheckCircle class="h-4 w-4 mr-2" />
-                Confirm Demo
-              </Button>
-
-              <Button
-                v-if="demoRequest.status === 'confirmed'"
-                @click="quickUpdateStatus('completed')"
-                variant="outline"
-                class="w-full"
-              >
-                <Check class="h-4 w-4 mr-2" />
-                Mark as Completed
-              </Button>
-
-              <Button
-                v-if="['pending', 'confirmed'].includes(demoRequest.status)"
-                @click="quickUpdateStatus('cancelled')"
-                variant="destructive"
-                class="w-full"
-              >
-                <X class="h-4 w-4 mr-2" />
-                Cancel Demo
-              </Button>
-
-              <Button variant="outline" class="w-full" @click="sendEmail">
-                <Mail class="h-4 w-4 mr-2" />
-                Send Email
-              </Button>
-            </div>
-          </div>
-
-          <!-- Timeline -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4 sm:p-6">
-            <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4 dark:text-white">Timeline</h3>
-            <div class="relative pl-5 border-l-2 border-gray-200 dark:border-gray-600 space-y-6">
-              <!-- Demo Requested -->
-              <div class="relative">
-                <div class="absolute -left-[21px] w-4 h-4 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800"></div>
-                <div>
-                  <p class="text-sm font-medium dark:text-white">Demo Requested</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(demoRequest.created_at) }}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">via {{ demoRequest.source }}</p>
+    <AdminLayout>
+        <div class="space-y-6 px-3 py-4 sm:px-6 sm:py-6">
+            <!-- Header -->
+            <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div class="flex items-center gap-4">
+                    <Button variant="ghost" @click="$inertia.visit(route('admin.demo-requests.index'))">
+                        <ArrowLeft class="mr-2 h-4 w-4" />
+                        Back to Demo Requests
+                    </Button>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Demo Request #{{ demoRequest.id }}</h1>
+                        <p class="text-gray-600 dark:text-gray-400">{{ demoRequest.name }} - {{ demoRequest.demo_type_label }}</p>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <Badge :variant="getStatusVariant(demoRequest.status)" class="px-3 py-1 text-sm">
@@ -266,20 +121,20 @@
                             <Button
                                 v-if="demoRequest.status === 'confirmed'"
                                 @click="quickUpdateStatus('completed')"
-                                variant="outline"
                                 class="w-full"
+                                variant="secondary"
                             >
-                                <Check class="mr-2 h-4 w-4" />
-                                Mark as Completed
+                                <Clock class="mr-2 h-4 w-4" />
+                                Mark Completed
                             </Button>
 
                             <Button
                                 v-if="['pending', 'confirmed'].includes(demoRequest.status)"
                                 @click="quickUpdateStatus('cancelled')"
-                                variant="destructive"
                                 class="w-full"
+                                variant="destructive"
                             >
-                                <X class="mr-2 h-4 w-4" />
+                                <XCircle class="mr-2 h-4 w-4" />
                                 Cancel Demo
                             </Button>
 
@@ -363,11 +218,11 @@
                                 <Label class="text-sm font-medium text-gray-500 dark:text-gray-400">Joined</Label>
                                 <p class="text-gray-900 dark:text-white">{{ formatDate(demoRequest.user.created_at) }}</p>
                             </div>
-                            <Button variant="outline" size="sm" class="mt-3 w-full" @click="viewUser">
-                                <User class="mr-2 h-4 w-4" />
-                                View User Profile
-                            </Button>
                         </div>
+                        <Button variant="outline" class="mt-4 w-full" @click="viewUser">
+                            <User class="mr-2 h-4 w-4" />
+                            View User Profile
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -396,6 +251,7 @@
                                 <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
                                 <SelectItem value="rescheduled">Rescheduled</SelectItem>
+                                <SelectItem value="no-show">No Show</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -424,40 +280,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useForm, router } from '@inertiajs/vue3'
-import { toast } from 'vue-sonner'
-import AdminLayout from '@/layouts/AdminLayout.vue'
-import { Button } from '@/Components/ui/button'
-import { Input } from '@/Components/ui/input'
-import { Label } from '@/Components/ui/label'
-import { Textarea } from '@/Components/ui/textarea'
-import { Badge } from '@/Components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/Components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/Components/ui/dialog'
-import {
-  ArrowLeft,
-  Edit,
-  CheckCircle,
-  Check,
-  X,
-  Mail,
-  User,
-  Loader2
-} from 'lucide-vue-next'
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import AdminLayout from '@/layouts/AdminLayout.vue';
+import { router, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, CheckCircle, Clock, Edit, Loader2, Mail, User, XCircle } from 'lucide-vue-next';
+import { ref } from 'vue';
+import { toast } from 'vue-sonner';
 
 interface Props {
     demoRequest: any;
@@ -474,41 +308,49 @@ const statusForm = useForm({
     admin_notes: props.demoRequest.admin_notes || '',
 });
 
-// Methods
 const getStatusVariant = (status: string) => {
-  const variants = {
-    pending: 'secondary',
-    confirmed: 'default',
-    completed: 'success',
-    cancelled: 'destructive',
-    rescheduled: 'warning'
-  }
-  return variants[status] || 'secondary'
-}
-
-const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
+    switch (status) {
+        case 'confirmed':
+            return 'default';
+        case 'completed':
+            return 'secondary';
+        case 'cancelled':
+            return 'destructive';
+        case 'rescheduled':
+            return 'outline';
+        default:
+            return 'secondary';
+    }
 };
 
-const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+const formatDate = (date: string) => {
+    if (!date) return '';
+    return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    }).format(new Date(date));
 };
 
-const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
+const formatTime = (date: string) => {
+    if (!date) return '';
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
         minute: '2-digit',
-    });
+        hour12: true,
+    }).format(new Date(date));
+};
+
+const formatDateTime = (date: string) => {
+    if (!date) return '';
+    return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    }).format(new Date(date));
 };
 
 const formatMetadataKey = (key: string) => {
@@ -521,69 +363,36 @@ const editStatus = () => {
 
 const quickUpdateStatus = (status: string) => {
     statusForm.status = status;
-
-    // If confirming, ensure we have a confirmed datetime
-    if (status === 'confirmed' && !statusForm.confirmed_datetime) {
-        // Set confirmed datetime to the next business hour, rounded up
-        const now = new Date();
-        now.setHours(now.getHours() + 1, 0, 0, 0); // Next hour, zero minutes
-
-        // If after 5pm, set to 9am next day
-        if (now.getHours() >= 17) {
-            now.setDate(now.getDate() + 1);
-            now.setHours(9, 0, 0, 0);
-        }
-
-        // Format for datetime-local input
-        statusForm.confirmed_datetime = now.toISOString().slice(0, 16);
-    }
-
-    updateStatus();
+    statusForm.patch(route('admin.demo-requests.update', props.demoRequest.id), {
+        onSuccess: () => {
+            toast.success('Status updated successfully!');
+        },
+        onError: () => {
+            toast.error('Failed to update status');
+        },
+    });
 };
 
 const updateStatus = () => {
-    // Validate form before submission
-    if (statusForm.status === 'confirmed' && !statusForm.confirmed_datetime) {
-        toast.error('Please select a confirmed date and time');
-        return;
-    }
-
-    // Use router.post instead of form.put to ensure Inertia response handling
-    router.post(
-        route('admin.demo-requests.update-status', props.demoRequest.id),
-        {
-            _method: 'PUT',
-            status: statusForm.status,
-            confirmed_datetime: statusForm.confirmed_datetime,
-            admin_notes: statusForm.admin_notes,
+    statusForm.patch(route('admin.demo-requests.update', props.demoRequest.id), {
+        onSuccess: () => {
+            showStatusModal.value = false;
+            toast.success('Demo request updated successfully!');
         },
-        {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Demo request status updated successfully');
-                showStatusModal.value = false;
-            },
-            onError: (errors) => {
-                if (errors.confirmed_datetime) {
-                    toast.error('Error: ' + errors.confirmed_datetime);
-                } else {
-                    toast.error('Failed to update demo request status: ' + Object.values(errors).flat().join(', '));
-                }
-            },
+        onError: () => {
+            toast.error('Failed to update demo request');
         },
-    );
+    });
 };
 
 const sendEmail = () => {
-    // Implementation for sending email
-    toast.info('Email functionality coming soon');
+    // TODO: Implement email sending functionality
+    toast.info('Email functionality coming soon!');
 };
 
 const viewUser = () => {
-  if (props.demoRequest.user) {
-    // Navigate to user profile
-    window.open(route('admin.users.show', props.demoRequest.user.id), '_blank')
-  }
-}
+    if (props.demoRequest.user) {
+        router.visit(route('admin.users.show', props.demoRequest.user.id));
+    }
+};
 </script>
