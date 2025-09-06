@@ -1850,9 +1850,9 @@ We appreciate all contributors to the RillTech platform. See [CONTRIBUTORS.md](C
 
 *Democratizing AI agent creation for businesses of all sizes*
 
-[![Website](https://img.shields.io/badge/Website-rilltech.com-blue?style=flat&logo=globe)](https://ayesigapo.vercel.app)
-[![Email](https://img.shields.io/badge/Email-contact@rilltech.com-red?style=flat&logo=gmail)](mailto:ayesigapo@gmail.com)
-[![Documentation](https://img.shields.io/badge/Docs-Available-green?style=flat&logo=gitbook)](https://docs.rilltech.com)
+[![Website](https://img.shields.io/badge/Website-ayesigapo.vercel.app-blue?style=flat&logo=globe)](https://ayesigapo.vercel.app)
+[![Email](https://img.shields.io/badge/Email-ayesigapo@gmail.com-red?style=flat&logo=gmail)](mailto:ayesigapo@gmail.com)
+[![Documentation](https://img.shields.io/badge/Docs-Coming-soon-green?style=flat&logo=gitbook)](https://docs.rilltech.com)
 
 ---
 
